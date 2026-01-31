@@ -1,12 +1,12 @@
 /* Container for left + right panels */
 .auth-container {
     display: flex;
-    gap: 75px;
+    gap: 95px;
     height: 90vh;
     width: 100%;
     font-family: sans-serif;
     box-sizing: border-box;
-    padding: 20px;
+    padding: 45px;
     align-items: center; /* Center vertically */
 }
 
@@ -24,7 +24,7 @@
   color: white;
   font-size: 28px;
   font-weight: 700;
-  padding: 20px;
+  padding: 40px;
   background-color: #4c00ff;
   height: 80vh; /* Fixed height */
   box-shadow: 
@@ -67,7 +67,7 @@
     width: 740px; /* 2 forms × 320px */
     transition: transform 0.5s cubic-bezier(0.77, 0, 0.175, 1);
     will-change: transform; /* Improve performance */
-    gap: 90px;
+    gap: 100px;
     position: relative;
 }
 
@@ -76,7 +76,6 @@
 .signup-slide {
     width: 280px;
     flex-shrink: 0;
-    gap: px;
     display: flex;
     flex-direction: column;
     padding: 15px;

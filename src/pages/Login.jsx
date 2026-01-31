@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom"; // ✅ Added for navigation
 import "../styles/auth.css";
 import MeshGradient from "../assets/mesh.svg";
 
 const Login = () => {
+  const navigate = useNavigate(); // ✅ initialize navigate
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   
@@ -73,75 +75,112 @@ const Login = () => {
 
   const handleLoginChange = (e) => {
     const { name, value } = e.target;
-    setLoginData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: "" }));
-    }
+    setLoginData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
   };
 
   const handleSignupChange = (e) => {
     const { name, value } = e.target;
-    setSignupData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: "" }));
-    }
+    setSignupData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
   };
 
+  const API_URL = "http://localhost:5000/api/auth";
+
+  // LOGIN
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     const validationErrors = validateLogin();
-    
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
-    
+
     setIsLoading(true);
     setErrors({});
-    
-    // Simulate API call
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log("Login data:", loginData);
-      // Add your actual login logic here
-      alert("Login successful!");
+      const res = await fetch(`${API_URL}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(loginData)
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setErrors({ submit: data.message || "Login failed" });
+        setIsLoading(false);
+        return;
+      }
+
+      // Save JWT token and user info
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      
+
+      // ✅ Redirect based on role
+      const role = data.user.role.toUpperCase();
+      if (role === "ADMIN") {
+        navigate("/admin");
+      } else if (role === "FACULTY") {
+        navigate("/faculty");
+      } else {
+        navigate("/"); // fallback
+      }
+
     } catch (error) {
       setErrors({ submit: "Login failed. Please try again." });
+      console.error(error);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // SIGNUP
   const handleSignupSubmit = async (e) => {
     e.preventDefault();
     const validationErrors = validateSignup();
-    
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
-    
+
     setIsLoading(true);
     setErrors({});
-    
-    // Simulate API call
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log("Signup data:", signupData);
-      // Add your actual signup logic here
+      const res = await fetch(`${API_URL}/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          college_id: signupData.id,
+          name: signupData.fullName,
+          email: signupData.email,
+          phone: signupData.phone,
+          password: signupData.password,
+          role: signupData.role.toUpperCase()
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setErrors({ submit: data.message || "Signup failed" });
+        setIsLoading(false);
+        return;
+      }
+
       alert("Account created successfully!");
-      // Optionally switch to login after successful signup
-      // setIsLogin(true);
+      console.log("Signup success:", data);
+
+      // Switch to login
+      setIsLogin(true);
+
     } catch (error) {
       setErrors({ submit: "Signup failed. Please try again." });
+      console.error(error);
     } finally {
       setIsLoading(false);
     }
@@ -157,8 +196,8 @@ const Login = () => {
 
       {/* RIGHT PANEL */}
       <div className="auth-right">
-        {/* Inner sliding container */}
         <div className={`form-slider ${isLogin ? "login" : "signup"}`}>
+
           {/* LOGIN FORM */}
           <form className="login-form login-slide" onSubmit={handleLoginSubmit}>
             <h1 className="login-title">Welcome Back!</h1>
@@ -195,11 +234,7 @@ const Login = () => {
               className={`login-btn ${isLoading ? 'loading' : ''}`}
               disabled={isLoading}
             >
-              {isLoading ? (
-                <span className="loading-text">Logging in...</span>
-              ) : (
-                'Login'
-              )}
+              {isLoading ? "Logging in..." : "Login"}
             </button>
 
             <p className="login-footer">
@@ -305,11 +340,7 @@ const Login = () => {
               className={`login-btn ${isLoading ? 'loading' : ''}`}
               disabled={isLoading}
             >
-              {isLoading ? (
-                <span className="loading-text">Creating Account...</span>
-              ) : (
-                'Sign Up'
-              )}
+              {isLoading ? "Creating Account..." : "Sign Up"}
             </button>
 
             <p className="login-footer">
@@ -317,6 +348,7 @@ const Login = () => {
               <span className="toggle-auth" onClick={toggleAuth}>Login</span>
             </p>
           </form>
+
         </div>
       </div>
     </div>
