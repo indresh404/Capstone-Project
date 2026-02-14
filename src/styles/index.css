@@ -1,3 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+rounded-r-3xl
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -7,6 +12,7 @@
   color: rgba(255, 255, 255, 0.87);
   background-color: #f6f7ff;
 
+  min-width: none;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -23,17 +29,21 @@ a:hover {
 }
 
 body {
-  margin: 0;  
-  display: flex;
-  place-items: center;
+  margin: 0;
   min-width: 320px;
   min-height: 100vh;
+
+  /* REMOVE THESE */
+  /* display: flex; */
+  /* place-items: center; */
+
   background:
     radial-gradient(at 10% 10%, #dbeafe, transparent 50%),
     radial-gradient(at 90% 20%, #f1dffb, transparent 30%),
     radial-gradient(at 50% 90%, #e8e0fe, transparent 50%),
     radial-gradient(at 90% 80%, #dfd3ff, transparent 50%);
 }
+
 
 h1 {
   font-size: 3.2em;
