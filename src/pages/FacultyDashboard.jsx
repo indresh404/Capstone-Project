@@ -12,6 +12,7 @@ import AttendanceComponent from "../components/faculty/AttendanceComponent";
 import TimetableComponent from "../components/faculty/TimetableComponent";
 import RequestsComponent from "../components/faculty/RequestsComponent";
 import SettingsComponent from "../components/faculty/SettingsComponent";
+import LogoPng from "../assets/Logo.png";
 
 const FacultyDashboard = () => {
   const [activeTab, setActiveTab] = useState("home");
@@ -87,18 +88,29 @@ const FacultyDashboard = () => {
         initial={false}
         animate={isExpanded ? "expanded" : "collapsed"}
         variants={sidebarVariants}
-        className="bg-gradient-to-b -left-5 from-[#00017A] via-[#8545FF] to-[#670082] shadow-2xl rounded-r-[3rem] flex flex-col items-center py-10 gap-8 relative overflow-visible z-50"
+        className="bg-gradient-to-b -left-5 from-[#27006B] via-[#AC00D6] to-[#27006B] shadow-2xl rounded-r-[3rem] flex flex-col items-center py-10 gap-8 relative overflow-visible z-50"
       >
         {/* Subtle glass overlay */}
         <div className="absolute inset-0 bg-white/5 backdrop-blur-[1px] pointer-events-none rounded-r-[3rem]" />
 
         {/* LOGO - Clickable Toggle */}
-        <button 
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="relative z-10 w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-white border border-white/30 shadow-inner hover:scale-110 active:scale-95 transition-transform cursor-pointer"
-        >
-          <span className="font-black text-2xl tracking-tighter">S</span>
-        </button>
+        {/* LOGO - Clickable Toggle */}
+<button 
+  onClick={() => setIsExpanded(!isExpanded)}
+  className="relative z-10 w-14 h-14 bg-black/50 backdrop-blur-md rounded-3xl flex items-center justify-center border  shadow-inner hover:scale-110 active:scale-95 transition-transform cursor-pointer p-2"
+>
+  <motion.img 
+    src={LogoPng} 
+    alt="Logo" 
+    initial={false}
+    animate={{ 
+      rotate: isExpanded ? 360 : 0,
+      scale: isExpanded ? 1.1 : 1 
+    }}
+    transition={{ type: "spring", stiffness: 200, damping: 15 }}
+    className="w-full h-full object-contain filter drop-shadow-md"
+  />
+</button>
 
         {/* Navigation Items */}
         <nav className="relative z-10 flex-1 flex flex-col gap-4 mt-4 w-full px-4">
@@ -115,7 +127,7 @@ const FacultyDashboard = () => {
               {activeTab === item.key && (
                 <motion.div 
                   layoutId="sidebarActive"
-                  className="absolute -left-4 top-[20%] w-2 h-[60%] bg-white rounded-r-full shadow-[4px_0_15px_rgba(255,255,255,0.8)]"
+                  className="absolute -left-4 top-[10%] w-2 h-[85%] bg-white rounded-r-full shadow-[4px_0_15px_rgba(255,255,255,0.8)]"
                 />
               )}
               
