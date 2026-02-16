@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"; // Added useEffect
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -11,24 +11,22 @@ import LottieComponent from "lottie-react";
 const Lottie = LottieComponent.default ?? LottieComponent;
 
 // Assets
-import animationData from "../assets/LoginLottie.json";
-import bgLinesData from "../assets/gradientbg.json";
+import animationData from "../assets/loginScreen.json";
 import gradientBgData from "../assets/Background 3d stroke.json";
-import LogoPng from "../assets/logo.png"; // ✅ IMPORT YOUR LOGO PNG HERE
+import LogoPng from "../assets/logo.png";
 
 const Login = () => {
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  const [showLogo, setShowLogo] = useState(true); // ✅ State for sequencing
+  const [showLogo, setShowLogo] = useState(true);
 
   const [loginData, setLoginData] = useState({ email: "", password: "" });
   const [signupData, setSignupData] = useState({
     role: "", id: "", fullName: "", phone: "", email: "", password: "", confirmPassword: ""
   });
 
-  // ✅ Sequencing Logic: Logo shows for 2.5s then disappears
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowLogo(false);
@@ -107,22 +105,11 @@ const Login = () => {
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-[#F9FAFB] p-4 font-sans overflow-hidden relative">
       
-      {/* 1. WEBSITE BACKGROUND LOTTIE */}
-      <div className="fixed inset-0 z-0 pointer-events-none opacity-40">
-        <Lottie 
-          animationData={bgLinesData} 
-          loop={true} 
-          style={{ width: '100vw', height: '100vh' }} 
-          rendererSettings={{ preserveAspectRatio: 'xMidYMid slice' }}
-        />
-      </div>
-
       {/* MAIN AUTH CARD */}
-      <div className="relative z-10 flex w-full max-w-[1000px] min-h-[650px] bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
+      <div className="relative z-10 flex w-full max-w-[1200px] min-h-[650px] bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
         
         {/* LEFT BRANDING PANEL */}
-        <div className="hidden md:flex md:w-[58%] relative bg-indigo-600 overflow-hidden">
-          
+        <div className="hidden md:flex md:w-[60%] relative bg-indigo-600 overflow-hidden">
           <div className="absolute inset-0">
             <Lottie 
               animationData={gradientBgData} 
@@ -131,41 +118,68 @@ const Login = () => {
               rendererSettings={{ preserveAspectRatio: 'xMidYMid slice' }}
             />
           </div>
-
           <div className="absolute inset-0 bg-black/5 backdrop-blur-[1px]" />
           
-          {/* ✅ ANIMATED LOGO & TEXT SECTION */}
           <div className="relative z-20 w-full h-full flex flex-col items-center justify-center p-8 text-white text-center">
             <AnimatePresence mode="wait">
               {showLogo ? (
-                // 1. Logo PNG shows first
                 <motion.div
                   key="logo-png"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 1.1, filter: "blur(10px)" }}
-                  transition={{ duration: 1, ease: "easeInOut" }}
+                  initial={{ opacity: 0, scale: 0.4, filter: "blur(10px)" }}
+                  animate={{ opacity: 1, scale: 0.8, filter: "blur(0px)" }}
+                  exit={{ 
+                    opacity: 0, 
+                    scale: 1.1, 
+                    filter: "blur(15px)",
+                    transition: { duration: 0.4 } 
+                  }}
+                  transition={{ type: "spring", stiffness: 100, damping: 18 }}
                 >
                   <img src={LogoPng} alt="Logo" className="w-32 h-32 object-contain" />
                 </motion.div>
               ) : (
-                // 2. Text and Tagline show second
                 <motion.div
                   key="brand-text"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: 0.2 }}
+                  initial="hidden"
+                  animate="visible"
+                  variants={{
+                    hidden: { opacity: 0 },
+                    visible: {
+                      opacity: 1,
+                      transition: { staggerChildren: 0.2, delayChildren: 0.1 }
+                    }
+                  }}
                 >
-                  <h1 className="text-4xl font-bold tracking-tight mb-2">Schedula</h1>
+                  <motion.h1 
+                    variants={{
+                      hidden: { opacity: 0, y: 15, filter: "blur(4px)" },
+                      visible: { opacity: 1, y: 0, filter: "blur(0px)" }
+                    }}
+                    transition={{ type: "spring", stiffness: 80 }}
+                    className="text-5xl font-bold tracking-tight mb-2"
+                  >
+                    Schedula
+                  </motion.h1>
+
                   <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: "32px" }}
-                    transition={{ duration: 0.6, delay: 0.8 }}
+                    variants={{
+                      hidden: { width: 0, opacity: 0 },
+                      visible: { width: "40px", opacity: 1 }
+                    }}
+                    transition={{ duration: 0.8, ease: "circOut" }}
                     className="h-[2px] bg-white/40 mb-4 mx-auto" 
                   />
-                  <p className="text-white/80 text-[12px] font-bold uppercase tracking-[0.3em]">
+
+                  <motion.p 
+                    variants={{
+                      hidden: { opacity: 0, letterSpacing: "0.1em" },
+                      visible: { opacity: 1, letterSpacing: "0.3em" }
+                    }}
+                    transition={{ duration: 1 }}
+                    className="text-white/80 text-[11px] font-bold uppercase"
+                  >
                     Smart Scheduling
-                  </p>
+                  </motion.p>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -173,16 +187,16 @@ const Login = () => {
         </div>
 
         {/* RIGHT FORM PANEL */}
-        <div className="flex-1 flex flex-col justify-center px-8 lg:px-14 bg-white/60 relative py-10">
+        <div className="flex-1 flex flex-col justify-center px-8 lg:px-14 bg-white/60 relative py-10 overflow-hidden ">
           <AnimatePresence mode="wait">
             <motion.div
               key={isLogin ? "login" : "signup"}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="w-full"
+              className="w-full relative z-10"
             >
-              <h2 className="text-2xl font-bold text-slate-800 tracking-tight mb-1">
+              <h2 className="text-3xl font-bold text-slate-800 tracking-tight mb-1">
                 {isLogin ? "Welcome Back" : "Join Schedula"}
               </h2>
               <p className="text-slate-400 text-xs mb-8">
@@ -271,31 +285,37 @@ const Login = () => {
                 </button>
               </form>
 
-              <p className="mt-8 text-center text-slate-400 text-[12px]">
+              <p className="mt-8 text-center text-slate-400 text-[12px] -translate-y-5">
                 <button type="button" onClick={toggleAuth} className="text-indigo-600 font-bold hover:underline">
                   {isLogin ? "Create account" : "Login here"}
                 </button>
               </p>
             </motion.div>
           </AnimatePresence>
-        </div>
-      </div>
 
-      {/* 3. FOREGROUND LOTTIE */}
-      <div className="fixed -bottom-10 -right-10 w-64 h-64 md:w-80 md:h-80 pointer-events-none z-50">
-        {animationData && (
-          <Lottie
-            animationData={animationData}
-            loop={true}
-            style={{ width: '100%', height: '100%' }}
-          />
-        )}
+          {/* INTERNAL LOTTIE - Only shows when isLogin is true */}
+          <AnimatePresence>
+            {isLogin && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.5, y: 50 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.5, y: 50 }}
+                className="absolute bottom-[-135px] right-0 w-45 h-45 pointer-events-none z-0 opacity-40 md:opacity-100"
+              >
+                <Lottie
+                  animationData={animationData}
+                  loop={true}
+                  style={{ width: '99%', height: '99%' }}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   );
 };
 
-// Reusable Input Component
 const FormInput = ({ icon, error, ...props }) => (
   <div className="w-full group">
     <div className="relative">
