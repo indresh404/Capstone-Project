@@ -17,4 +17,5 @@ const verifyToken = (req, res, next) => {
   }
 };
 
+// Export only one thing - the function
 module.exports = verifyToken;
