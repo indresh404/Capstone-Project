@@ -190,7 +190,7 @@ const FacultyDashboard = () => {
       <main className="flex-1 flex flex-col px-12 pt-6 overflow-hidden">
         
         {/* TOP HEADER */}
-        <header className="flex items-center justify-between mb-12">
+        <header className="flex items-center justify-between mb-5">
           <div>
             <h1 className="text-4xl font-black text-slate-900 tracking-tight">
               Welcome to <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">Schedula</span>
