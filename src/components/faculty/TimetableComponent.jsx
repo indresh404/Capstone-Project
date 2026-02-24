@@ -225,7 +225,7 @@ const TimetableComponent = () => {
 
   if (loading || loadingState === "error") {
     return (
-      <div className="h-screen flex flex-col items-center justify-center overflow-hidden px-4">
+      <div className="h-screen w-full bg-white flex flex-col items-center justify-center overflow-hidden px-4">
         <div className="flex flex-col lg:flex-row items-center justify-center gap-12">
 
           <motion.div
@@ -338,8 +338,8 @@ const TimetableComponent = () => {
   // ── Main View ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/30 to-purple-50/30 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 via-indigo-50/30 to-purple-50/30 px-6 py-6">
+      <div className="w-full space-y-6">
 
         {/* Header */}
         <motion.div

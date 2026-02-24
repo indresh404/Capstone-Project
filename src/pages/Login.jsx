@@ -103,10 +103,10 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-[#F9FAFB] p-4 font-sans overflow-hidden relative">
+    <div className="h-screen w-screen flex items-center justify-center bg-[#F9FAFB] font-sans overflow-hidden relative px-6 py-6">
       
       {/* MAIN AUTH CARD */}
-      <div className="relative z-10 flex w-full max-w-[1200px] min-h-[650px] bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
+      <div className="relative z-10 flex w-full h-full max-w-[1700px] bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
         
         {/* LEFT BRANDING PANEL */}
         <div className="hidden md:flex md:w-[60%] relative bg-indigo-600 overflow-hidden">
@@ -300,7 +300,7 @@ const Login = () => {
                 initial={{ opacity: 0, scale: 0.5, y: 50 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.5, y: 50 }}
-                className="absolute bottom-[-135px] right-0 w-45 h-45 pointer-events-none z-0 opacity-40 md:opacity-100"
+                className="absolute bottom-[-185px] right-0 w-45 h-45 pointer-events-none z-0 opacity-40 md:opacity-100"
               >
                 <Lottie
                   animationData={animationData}
