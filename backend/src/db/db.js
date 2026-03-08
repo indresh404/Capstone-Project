@@ -1,18 +1,13 @@
-const mysql = require("mysql2");
+require("dotenv").config();
+const { Pool } = require("pg");
 
-const db = mysql.createConnection({
-    host: "127.0.0.1",
-    user: "root",
-    password: "root",
-    database: "Schedula_db"
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
 });
 
-db.connect((err) => {
-    if (err) {
-        console.error("❌ MySQL connection failed:", err.message);
-        return;
-    }
-    console.log("✅ MySQL Connected to Schedula_db");
-});
+pool.connect()
+  .then(() => console.log("✅ Connected to Supabase"))
+  .catch(err => console.error("❌ Supabase connection error:", err));
 
-module.exports = db;
+module.exports = pool;

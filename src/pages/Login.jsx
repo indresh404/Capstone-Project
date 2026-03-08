@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  Mail, Lock, User, Phone, Briefcase, 
-  Fingerprint, Loader2, ChevronRight, AlertCircle 
+  Mail, Lock, User, Phone, Briefcase, GraduationCap,
+  Fingerprint, Loader2, ChevronRight, AlertCircle, CheckCircle
 } from "lucide-react";
 
 // Robust Lottie Import
@@ -13,6 +13,7 @@ const Lottie = LottieComponent.default ?? LottieComponent;
 // Assets
 import animationData from "../assets/loginScreen.json";
 import gradientBgData from "../assets/Background 3d stroke.json";
+import successAnimation from "../assets/succes.json"; // You can use any success animation
 import LogoPng from "../assets/logo.png";
 
 const Login = () => {
@@ -21,8 +22,9 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [showLogo, setShowLogo] = useState(true);
+  const [showSuccess, setShowSuccess] = useState(false);
 
-  const [loginData, setLoginData] = useState({ email: "", password: "" });
+  const [loginData, setLoginData] = useState({ identifier: "", password: "" }); // Changed from email to identifier
   const [signupData, setSignupData] = useState({
     role: "", id: "", fullName: "", phone: "", email: "", password: "", confirmPassword: ""
   });
@@ -39,6 +41,7 @@ const Login = () => {
   const toggleAuth = () => {
     setIsLogin(!isLogin);
     setErrors({});
+    setShowSuccess(false);
   };
 
   const handleLoginChange = (e) => {
@@ -60,14 +63,26 @@ const Login = () => {
       const res = await fetch(`${API_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(loginData)
+        body: JSON.stringify({ 
+          identifier: loginData.identifier, // Can be email or college_id
+          password: loginData.password 
+        })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Login failed");
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
-      navigate(data.user.role.toUpperCase() === "ADMIN" ? "/admin" : "/faculty");
+      
+      // Redirect based on role
+      const role = data.user.role.toUpperCase();
+      if (role === "ADMIN") {
+        navigate("/admin");
+      } else if (role === "FACULTY") {
+        navigate("/faculty");
+      } else if (role === "STUDENT") {
+        navigate("/student");
+      }
     } catch (err) {
       setErrors({ submit: err.message });
     } finally { setIsLoading(false); }
@@ -75,10 +90,18 @@ const Login = () => {
 
   const handleSignupSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validation
     if (signupData.password !== signupData.confirmPassword) {
       setErrors({ confirmPassword: "Passwords do not match" });
       return;
     }
+    
+    if (signupData.password.length < 6) {
+      setErrors({ password: "Password must be at least 6 characters" });
+      return;
+    }
+
     setIsLoading(true);
     try {
       const res = await fetch(`${API_URL}/signup`, {
@@ -90,13 +113,24 @@ const Login = () => {
           email: signupData.email,
           phone: signupData.phone,
           password: signupData.password,
-          role: signupData.role.toUpperCase()
+          role: signupData.role.toLowerCase()
         })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Signup failed");
-      alert("Account created successfully!");
-      setIsLogin(true);
+      
+      // Show success animation
+      setShowSuccess(true);
+      
+      // Auto redirect to login after 2 seconds
+      setTimeout(() => {
+        setShowSuccess(false);
+        setIsLogin(true);
+        setSignupData({
+          role: "", id: "", fullName: "", phone: "", email: "", password: "", confirmPassword: ""
+        });
+      }, 2000);
+      
     } catch (err) {
       setErrors({ submit: err.message });
     } finally { setIsLoading(false); }
@@ -189,113 +223,155 @@ const Login = () => {
         {/* RIGHT FORM PANEL */}
         <div className="flex-1 flex flex-col justify-center px-8 lg:px-14 bg-white/60 relative py-10 overflow-hidden ">
           <AnimatePresence mode="wait">
-            <motion.div
-              key={isLogin ? "login" : "signup"}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="w-full relative z-10"
-            >
-              <h2 className="text-3xl font-bold text-slate-800 tracking-tight mb-1">
-                {isLogin ? "Welcome Back" : "Join Schedula"}
-              </h2>
-              <p className="text-slate-400 text-xs mb-8">
-                {isLogin ? "Sign in to your account" : "Create a new faculty account"}
-              </p>
-
-              <form className="space-y-3" onSubmit={isLogin ? handleLoginSubmit : handleSignupSubmit}>
-                {!isLogin && (
-                  <motion.div 
-                    initial={{ opacity: 0, height: 0 }} 
-                    animate={{ opacity: 1, height: "auto" }} 
-                    className="space-y-3"
-                  >
-                    <div className="relative">
-                      <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" size={16}/>
-                      <select 
-                        name="role"
-                        value={signupData.role}
-                        onChange={handleSignupChange}
-                        className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold outline-none focus:border-indigo-400 focus:bg-white transition-all appearance-none"
-                      >
-                        <option value="">Select Role</option>
-                        <option value="admin">Admin</option>
-                        <option value="faculty">Faculty</option>
-                      </select>
-                    </div>
-
-                    <FormInput 
-                      name="id" placeholder="Faculty/Admin ID" icon={<Fingerprint size={16}/>} 
-                      value={signupData.id} onChange={handleSignupChange} error={errors.id} 
-                    />
-                    <FormInput 
-                      name="fullName" placeholder="Full Name" icon={<User size={16}/>} 
-                      value={signupData.fullName} onChange={handleSignupChange} error={errors.fullName} 
-                    />
-                    <FormInput 
-                      name="phone" placeholder="Phone Number" icon={<Phone size={16}/>} 
-                      value={signupData.phone} onChange={handleSignupChange} 
-                    />
-                  </motion.div>
-                )}
-
-                <FormInput 
-                  name="email" 
-                  placeholder="Email" 
-                  icon={<Mail size={16}/>} 
-                  value={isLogin ? loginData.email : signupData.email} 
-                  onChange={isLogin ? handleLoginChange : handleSignupChange} 
-                  error={errors.email} 
+            {showSuccess ? (
+              <motion.div
+                key="success"
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.5 }}
+                className="flex flex-col items-center justify-center"
+              >
+                <Lottie
+                  animationData={successAnimation}
+                  loop={false}
+                  style={{ width: 200, height: 200 }}
                 />
+                <h3 className="text-xl font-bold text-green-600 mt-4">Account Created Successfully!</h3>
+                <p className="text-slate-500 text-sm mt-2">Redirecting to login...</p>
+              </motion.div>
+            ) : (
+              <motion.div
+                key={isLogin ? "login" : "signup"}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="w-full relative z-10"
+              >
+                <h2 className="text-3xl font-bold text-slate-800 tracking-tight mb-1">
+                  {isLogin ? "Welcome Back" : "Join Schedula"}
+                </h2>
+                <p className="text-slate-400 text-xs mb-8">
+                  {isLogin ? "Sign in to your account" : "Create a new account"}
+                </p>
 
-                <FormInput 
-                  name="password" 
-                  placeholder="Password" 
-                  type="password"
-                  icon={<Lock size={16}/>} 
-                  value={isLogin ? loginData.password : signupData.password} 
-                  onChange={isLogin ? handleLoginChange : handleSignupChange} 
-                  error={errors.password} 
-                />
+                <form className="space-y-3" onSubmit={isLogin ? handleLoginSubmit : handleSignupSubmit}>
+                  {!isLogin && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }} 
+                      animate={{ opacity: 1, height: "auto" }} 
+                      className="space-y-3"
+                    >
+                      <div className="relative">
+                        <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" size={16}/>
+                        <select 
+                          name="role"
+                          value={signupData.role}
+                          onChange={handleSignupChange}
+                          className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold outline-none focus:border-indigo-400 focus:bg-white transition-all appearance-none"
+                          required
+                        >
+                          <option value="">Select Role</option>
+                          <option value="admin">Admin</option>
+                          <option value="faculty">Faculty</option>
+                          <option value="student">Student</option>
+                        </select>
+                      </div>
 
-                {!isLogin && (
-                   <FormInput 
-                    name="confirmPassword" 
-                    placeholder="Confirm Password" 
+                      <FormInput 
+                        name="id" placeholder="College/University ID" icon={<Fingerprint size={16}/>} 
+                        value={signupData.id} onChange={handleSignupChange} error={errors.id} 
+                        required
+                      />
+                      <FormInput 
+                        name="fullName" placeholder="Full Name" icon={<User size={16}/>} 
+                        value={signupData.fullName} onChange={handleSignupChange} error={errors.fullName} 
+                        required
+                      />
+                      <FormInput 
+                        name="phone" placeholder="Phone Number" icon={<Phone size={16}/>} 
+                        value={signupData.phone} onChange={handleSignupChange} error={errors.phone}
+                        required
+                      />
+                    </motion.div>
+                  )}
+
+                  {isLogin ? (
+                    <FormInput 
+                      name="identifier" 
+                      placeholder="Email or College ID" 
+                      icon={<User size={16}/>} 
+                      value={loginData.identifier} 
+                      onChange={handleLoginChange} 
+                      error={errors.identifier}
+                      required
+                    />
+                  ) : (
+                    <FormInput 
+                      name="email" 
+                      placeholder="Email" 
+                      icon={<Mail size={16}/>} 
+                      value={signupData.email} 
+                      onChange={handleSignupChange} 
+                      error={errors.email}
+                      required
+                    />
+                  )}
+
+                  <FormInput 
+                    name="password" 
+                    placeholder="Password" 
                     type="password"
                     icon={<Lock size={16}/>} 
-                    value={signupData.confirmPassword} 
-                    onChange={handleSignupChange} 
-                    error={errors.confirmPassword} 
+                    value={isLogin ? loginData.password : signupData.password} 
+                    onChange={isLogin ? handleLoginChange : handleSignupChange} 
+                    error={errors.password} 
+                    required
                   />
-                )}
 
-                {errors.submit && (
-                  <div className="flex items-center gap-2 p-3 bg-red-50 text-red-600 rounded-xl text-[11px] font-bold border border-red-100">
-                    <AlertCircle size={14} /> {errors.submit}
-                  </div>
-                )}
+                  {!isLogin && (
+                     <FormInput 
+                      name="confirmPassword" 
+                      placeholder="Confirm Password" 
+                      type="password"
+                      icon={<Lock size={16}/>} 
+                      value={signupData.confirmPassword} 
+                      onChange={handleSignupChange} 
+                      error={errors.confirmPassword} 
+                      required
+                    />
+                  )}
 
-                <button 
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full bg-indigo-600 text-white font-bold text-sm py-3 rounded-xl shadow-lg hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 mt-4"
-                >
-                  {isLoading ? <Loader2 className="animate-spin" size={16} /> : (isLogin ? "Sign In" : "Sign Up")}
-                </button>
-              </form>
+                  {errors.submit && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-center gap-2 p-3 bg-red-50 text-red-600 rounded-xl text-[11px] font-bold border border-red-100"
+                    >
+                      <AlertCircle size={14} /> {errors.submit}
+                    </motion.div>
+                  )}
 
-              <p className="mt-8 text-center text-slate-400 text-[12px] -translate-y-5">
-                <button type="button" onClick={toggleAuth} className="text-indigo-600 font-bold hover:underline">
-                  {isLogin ? "Create account" : "Login here"}
-                </button>
-              </p>
-            </motion.div>
+                  <button 
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full bg-indigo-600 text-white font-bold text-sm py-3 rounded-xl shadow-lg hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLoading ? <Loader2 className="animate-spin" size={16} /> : (isLogin ? "Sign In" : "Sign Up")}
+                  </button>
+                </form>
+
+                <p className="mt-8 text-center text-slate-400 text-[12px] -translate-y-5">
+                  <button type="button" onClick={toggleAuth} className="text-indigo-600 font-bold hover:underline">
+                    {isLogin ? "Create account" : "Login here"}
+                  </button>
+                </p>
+              </motion.div>
+            )}
           </AnimatePresence>
 
-          {/* INTERNAL LOTTIE - Only shows when isLogin is true */}
+          {/* INTERNAL LOTTIE - Only shows when isLogin is true and no success animation */}
           <AnimatePresence>
-            {isLogin && (
+            {isLogin && !showSuccess && (
               <motion.div 
                 initial={{ opacity: 0, scale: 0.5, y: 50 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -316,7 +392,7 @@ const Login = () => {
   );
 };
 
-const FormInput = ({ icon, error, ...props }) => (
+const FormInput = ({ icon, error, required, ...props }) => (
   <div className="w-full group">
     <div className="relative">
       <div className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${error ? 'text-red-400' : 'text-slate-300 group-focus-within:text-indigo-500'}`}>
@@ -324,6 +400,7 @@ const FormInput = ({ icon, error, ...props }) => (
       </div>
       <input 
         {...props}
+        required={required}
         className={`w-full pl-11 pr-4 py-2.5 bg-slate-50 border rounded-xl text-xs font-semibold outline-none transition-all ${error ? 'border-red-400' : 'border-slate-100 focus:border-indigo-400 focus:bg-white'}`}
       />
     </div>

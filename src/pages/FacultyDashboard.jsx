@@ -88,17 +88,17 @@ const FacultyDashboard = () => {
         initial={false}
         animate={isExpanded ? "expanded" : "collapsed"}
         variants={sidebarVariants}
-        className="bg-gradient-to-b -left-5 from-[#27006B] via-[#AC00D6] to-[#27006B] shadow-2xl rounded-r-[3rem] flex flex-col items-center py-10 gap-8 relative overflow-visible z-50"
+        className="bg-gradient-to-b -left-5 from-indigo-700 to-purple-700 shadow-2xl rounded-r-[3rem] flex flex-col items-center py-10 gap-8 relative overflow-visible z-50"
       >
         {/* Subtle glass overlay */}
         <div className="absolute inset-0 bg-white/5 backdrop-blur-[1px] pointer-events-none rounded-r-[3rem]" />
 
         {/* LOGO - Clickable Toggle */}
         {/* LOGO - Clickable Toggle */}
-<button 
-  onClick={() => setIsExpanded(!isExpanded)}
-  className="relative z-10 w-14 h-14 bg-black/50 backdrop-blur-md rounded-3xl flex items-center justify-center border  shadow-inner hover:scale-110 active:scale-95 transition-transform cursor-pointer p-2"
->
+        <button 
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="relative z-10 w-14 h-14 bg-black/50 backdrop-blur-md rounded-3xl flex items-center justify-center border  shadow-inner hover:scale-110 active:scale-95 transition-transform cursor-pointer p-2"
+        >
   <motion.img 
     src={LogoPng} 
     alt="Logo" 
