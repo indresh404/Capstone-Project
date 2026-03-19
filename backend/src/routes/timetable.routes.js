@@ -33,11 +33,11 @@ router.get('/', allowRoles(['ADMIN', 'FACULTY']), getTimetable);
 // Get timetable stats
 router.get('/stats', allowRoles(['ADMIN', 'FACULTY']), getTimetableStats);
 
-// Get faculty-specific timetable
-router.get('/faculty/:facultyName', allowRoles(['ADMIN', 'FACULTY']), getFacultyTimetable);
-
 // Get all faculty (for dropdowns)
 router.get('/faculty/all', allowRoles(['ADMIN', 'FACULTY']), getAllFaculty);
+
+// Get faculty-specific timetable
+router.get('/faculty/:facultyName', allowRoles(['ADMIN', 'FACULTY']), getFacultyTimetable);
 
 // Get all subjects (for dropdowns)
 router.get('/subjects/all', allowRoles(['ADMIN', 'FACULTY']), getAllSubjects);

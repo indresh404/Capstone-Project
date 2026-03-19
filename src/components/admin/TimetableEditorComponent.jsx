@@ -32,29 +32,8 @@ const TIME_SLOTS = {
 
 const BREAK_SLOT = 4;
 
-const SUBJECT_CODES = {
-  "Sampling Theory & Optimization": "STO-401",
-  "Design Thinking": "DT-402",
-  "Software Engineering & Project Management": "SEPM-403",
-  "Agentic AI": "AAI-404",
-  "Full Stack Development Lab": "FSD-405",
-  "Idea Lab": "IDEA-406",
-  "Tutorial Test": "TEST-407",
-  "FREE PERIOD": "FREE",
-  "BREAK": "BREAK",
-};
-
-const SUBJECTS = Object.keys(SUBJECT_CODES).filter(s => s !== "FREE PERIOD" && s !== "BREAK");
-
-const FACULTIES = [
-  "Dr. Sharma", "Prof. Mehta", "Dr. Patel", "Prof. Joshi",
-  "Dr. Verma", "Prof. Singh", "Dr. Kapoor", "Prof. Rao",
-];
-
-const ROOMS = [
-  "Lab 101", "Lab 102", "Room 201", "Room 202",
-  "Room 203", "Seminar Hall", "Room 301", "Room 302",
-];
+// NOTE: Subjects / faculty / rooms must be loaded from DB via API.
+// This component intentionally avoids hardcoded lists.
 
 const SESSION_STYLES = {
   theory: {
@@ -175,7 +154,7 @@ const AdminSessionCard = ({
       animate={{ opacity: isDragging ? 0.4 : 1, scale: 1, y: 0 }}
       whileHover={{ scale: 1.02, y: -2 }}
       className={`
-        relative rounded-xl overflow-hidden h-[120px] flex flex-col cursor-grab active:cursor-grabbing
+        group relative rounded-xl overflow-hidden h-[120px] flex flex-col cursor-grab active:cursor-grabbing
         ${isCurrent ? "ring-2 ring-indigo-400 ring-offset-2" : ""}
         ${hasClash ? "ring-2 ring-red-400 ring-offset-1" : ""}
         shadow-md transition-all duration-300
@@ -200,7 +179,8 @@ const AdminSessionCard = ({
       </div>
       <div className={`p-2 ${style.card} flex flex-col flex-1`}>
         <div className="font-bold text-xs text-slate-800 mb-1 line-clamp-1">
-          {SUBJECT_CODES[session.subject] || session.subject?.substring(0, 12) || "FREE"}
+          {(session.subject_code || "").toString().trim() ? `${session.subject_code} — ` : ""}
+          {(session.subject_name ?? session.subject ?? "FREE").toString().substring(0, 28)}
         </div>
         <div className="space-y-0.5 flex-1">
           {session.batch && session.batch !== "NULL" && session.batch !== "-" && (
@@ -216,39 +196,22 @@ const AdminSessionCard = ({
           )}
         </div>
       </div>
-      {/* Admin action buttons */}
-      <div className="absolute bottom-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <motion.button
-          whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
-          onClick={(e) => { e.stopPropagation(); onEdit(session, day, slotNumber, division); }}
-          className="w-5 h-5 bg-indigo-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-600"
-        >
-          <Edit3 size={9} />
-        </motion.button>
-        <motion.button
-          whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
-          onClick={(e) => { e.stopPropagation(); onDelete(day, slotNumber, division, session); }}
-          className="w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600"
-        >
-          <Trash2 size={9} />
-        </motion.button>
-      </div>
-      {/* Always visible edit overlay on hover */}
+      {/* Edit/Delete overlay */}
       <motion.div
-        className="absolute inset-0 bg-black/0 hover:bg-black/5 transition-colors rounded-xl flex items-end justify-end p-1.5 gap-1"
+        className="absolute inset-0 z-10 bg-black/0 group-hover:bg-black/5 transition-colors rounded-xl flex items-end justify-end p-1.5 gap-1 pointer-events-none"
         onClick={(e) => e.preventDefault()}
       >
         <motion.button
           whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
           onClick={(e) => { e.stopPropagation(); onEdit(session, day, slotNumber, division); }}
-          className="w-6 h-6 bg-white/90 text-indigo-600 rounded-full flex items-center justify-center shadow-lg border border-indigo-200"
+          className="w-6 h-6 bg-white text-indigo-700 rounded-full flex items-center justify-center shadow-lg border border-indigo-200 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto"
         >
           <Edit3 size={10} />
         </motion.button>
         <motion.button
           whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
           onClick={(e) => { e.stopPropagation(); onDelete(day, slotNumber, division, session); }}
-          className="w-6 h-6 bg-white/90 text-red-500 rounded-full flex items-center justify-center shadow-lg border border-red-200"
+          className="w-6 h-6 bg-white text-red-600 rounded-full flex items-center justify-center shadow-lg border border-red-200 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto"
         >
           <Trash2 size={10} />
         </motion.button>
@@ -264,50 +227,100 @@ const AdminSessionCard = ({
   );
 };
 
-const AdminSplitCard = ({ sessions, day, slotNumber, division, hasClash, onEdit, onDelete, onDragStart, onDragOver, onDrop, isDragging }) => (
+const AdminSplitCard = ({
+  sessions,
+  day,
+  slotNumber,
+  division,
+  hasClash,
+  onEdit,
+  onDelete,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  isDragging
+}) => (
   <motion.div
     layout
-    onDragOver={(e) => { e.preventDefault(); onDragOver({ day, slotNumber, division }); }}
-    onDrop={(e) => { e.preventDefault(); onDrop({ day, slotNumber, division }); }}
+    onDragOver={(e) => {
+      e.preventDefault();
+      onDragOver({ day, slotNumber, division });
+    }}
+    onDrop={(e) => {
+      e.preventDefault();
+      onDrop({ day, slotNumber, division });
+    }}
     initial={{ opacity: 0, scale: 0.9, y: 10 }}
     animate={{ opacity: isDragging ? 0.4 : 1, scale: 1, y: 0 }}
     className={`relative rounded-xl overflow-hidden h-[120px] flex flex-col shadow-md
       ${hasClash ? "ring-2 ring-red-400 ring-offset-1" : ""}`}
   >
+    {/* Header */}
     <div className="bg-slate-900/5 px-3 py-1.5 text-xs font-medium text-slate-600 flex justify-between items-center border-b border-white/20 shrink-0">
       <span className="flex items-center gap-1">
         <Clock size={12} />
         {TIME_SLOTS[slotNumber].start} – {TIME_SLOTS[slotNumber].end}
       </span>
+
       <span className="flex items-center gap-1 text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full text-[10px]">
-        <Layers size={10} /> {sessions.length} Sessions
+        <Layers size={10} />
+        {sessions.length} Sessions
       </span>
     </div>
+
+    {/* Sessions */}
     <div className="grid grid-cols-2 gap-1 p-1.5 flex-1 bg-white/40">
       {sessions.map((session, idx) => {
         const style = getStyle(session.type);
+
         return (
           <div
             key={idx}
             draggable
-            onDragStart={() => onDragStart({ session, day, slotNumber, division, idx })}
-            className={`p-1 rounded-lg ${style.card} flex flex-col justify-between relative group cursor-grab`}
+            onDragStart={() =>
+              onDragStart({ session, day, slotNumber, division, idx })
+            }
+            className={`relative p-1 rounded-lg ${style.card} flex flex-col justify-between group cursor-grab`}
           >
+            {/* Subject */}
             <div className="font-bold text-[9px] text-slate-800 line-clamp-1">
-              {SUBJECT_CODES[session.subject] || session.subject?.substring(0, 8) || "FREE"}
+              {(session.subject_code || "").toString().trim()
+                ? `${session.subject_code} `
+                : ""}
+              {(session.subject_name ?? session.subject ?? "FREE")
+                .toString()
+                .substring(0, 10)}
             </div>
+
+            {/* Room */}
             <div className="flex items-center gap-0.5 text-[8px] text-slate-500 mt-0.5">
-              <MapPin size={7} /><span className="truncate">{session.room || "—"}</span>
+              <MapPin size={8} />
+              <span className="truncate">{session.room || "—"}</span>
             </div>
-            <div className="absolute inset-0 bg-black/0 hover:bg-black/10 rounded-lg flex items-end justify-end p-0.5 gap-0.5 opacity-0 hover:opacity-100 transition-opacity">
-              <button onClick={(e) => { e.stopPropagation(); onEdit(session, day, slotNumber, division); }}
-                className="w-4 h-4 bg-white text-indigo-600 rounded-full flex items-center justify-center shadow text-[8px]">
-                <Edit3 size={8} />
+
+            {/* Hover Controls */}
+            <div className="absolute inset-0 flex items-end justify-end p-1 gap-1 opacity-0 group-hover:opacity-100 transition-all">
+              
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(session, day, slotNumber, division);
+                }}
+                className="w-6 h-6 bg-white text-indigo-700 rounded-full flex items-center justify-center shadow hover:bg-indigo-50"
+              >
+                <Edit3 size={14} />
               </button>
-              <button onClick={(e) => { e.stopPropagation(); onDelete(day, slotNumber, division, session); }}
-                className="w-4 h-4 bg-white text-red-500 rounded-full flex items-center justify-center shadow">
-                <Trash2 size={8} />
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(day, slotNumber, division, session);
+                }}
+                className="w-6 h-6 bg-white text-red-600 rounded-full flex items-center justify-center shadow hover:bg-red-50"
+              >
+                <Trash2 size={14} />
               </button>
+
             </div>
           </div>
         );
@@ -340,21 +353,24 @@ const AddSlotCard = ({ slotNumber, day, division, onAdd }) => (
 const SessionModal = ({
   isOpen, session, day, slotNumber, division,
   onClose, onSave, mode,
-  // DB-loaded lists (fall back to local constants if not yet loaded)
+  // DB-loaded lists
   facultyList: facultyListProp,
   roomsList: roomsListProp,
   subjectsList: subjectsListProp,
 }) => {
-  // Always arrays — guard against undefined/null passed by parent
-  const facultyOptions  = Array.isArray(facultyListProp)  && facultyListProp.length  ? facultyListProp  : FACULTIES.map(f => ({ id: f, name: f }));
-  const roomOptions     = Array.isArray(roomsListProp)    && roomsListProp.length    ? roomsListProp    : ROOMS.map(r => ({ id: r, name: r }));
-  const subjectOptions  = Array.isArray(subjectsListProp) && subjectsListProp.length ? subjectsListProp : SUBJECTS.map(s => ({ id: s, name: s, code: SUBJECT_CODES[s] }));
+  const facultyOptions = Array.isArray(facultyListProp) ? facultyListProp : [];
+  const roomOptions = Array.isArray(roomsListProp) ? roomsListProp : [];
+  const subjectOptions = Array.isArray(subjectsListProp) ? subjectsListProp : [];
 
   const [form, setForm] = useState({
-    subject: "",
+    subject_id: "",
+    subject_name: "",
+    subject_code: "",
     type: "theory",
-    faculty: "",
-    room: "",
+    faculty_id: "",
+    faculty_name: "",
+    room_id: "",
+    room_name: "",
     batch: "",
   });
   const [moveTarget, setMoveTarget] = useState({ day: day || "Monday", slot: slotNumber || 1 });
@@ -366,19 +382,33 @@ const SessionModal = ({
     setMoveTarget({ day: day || "Monday", slot: slotNumber || 1 });
     if (session) {
       setForm({
-        subject: session.subject || "",
+        subject_id: session.subject_id ?? "",
+        subject_name: session.subject_name ?? session.subject ?? "",
+        subject_code: session.subject_code ?? "",
         type:    session.type    || "theory",
-        faculty: session.faculty || "",
-        room:    session.room    || "",
+        faculty_id: session.faculty_id ?? "",
+        faculty_name: session.faculty_name ?? session.faculty ?? "",
+        room_id: session.room_id ?? "",
+        room_name: session.room_name ?? session.room ?? "",
         batch:   (session.batch === "Full Division" || session.batch === "-") ? "" : (session.batch || ""),
       });
     } else {
-      setForm({ subject: "", type: "theory", faculty: "", room: "", batch: "" });
+      setForm({
+        subject_id: "",
+        subject_name: "",
+        subject_code: "",
+        type: "theory",
+        faculty_id: "",
+        faculty_name: "",
+        room_id: "",
+        room_name: "",
+        batch: "",
+      });
     }
   }, [session, day, slotNumber, isOpen]);
 
   const handleSave = () => {
-    if (!form.subject) return;
+    if (!form.subject_id) return;
     const shouldMove = mode === "edit" && showMoveOptions &&
       (moveTarget.day !== day || moveTarget.slot !== slotNumber);
     onSave(form, moveTarget, shouldMove);
@@ -424,14 +454,23 @@ const SessionModal = ({
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 block">Subject</label>
               <div className="relative">
                 <select
-                  value={form.subject}
-                  onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
+                  value={form.subject_id}
+                  onChange={e => {
+                    const selected = subjectOptions.find(s => String(s.id) === String(e.target.value));
+                    setForm(f => ({
+                      ...f,
+                      subject_id: e.target.value,
+                      subject_name: selected?.name ?? "",
+                      subject_code: selected?.code ?? "",
+                      type: (selected?.type ?? f.type) || "theory",
+                    }));
+                  }}
                   className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 appearance-none pr-8"
                 >
-                  <option value="">Select Subject</option>
+                  <option value="">{subjectOptions.length ? "Select Subject" : "Loading subjects..."}</option>
                   {subjectOptions.map(s => (
-                    <option key={s.id ?? s.name} value={s.name}>
-                      {s.code ?? SUBJECT_CODES[s.name] ?? ""} — {s.name.substring(0, 30)}
+                    <option key={s.id} value={s.id}>
+                      {(s.code ? `${s.code} — ` : "") + (s.name ?? "").toString().substring(0, 30)}
                     </option>
                   ))}
                 </select>
@@ -468,13 +507,20 @@ const SessionModal = ({
                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 block">Faculty</label>
                 <div className="relative">
                   <select
-                    value={form.faculty}
-                    onChange={e => setForm(f => ({ ...f, faculty: e.target.value }))}
+                    value={form.faculty_id}
+                    onChange={e => {
+                      const selected = facultyOptions.find(f => String(f.id) === String(e.target.value));
+                      setForm(f => ({
+                        ...f,
+                        faculty_id: e.target.value,
+                        faculty_name: selected?.name ?? "",
+                      }));
+                    }}
                     className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 appearance-none pr-6"
                   >
-                    <option value="">Select Faculty</option>
+                    <option value="">{facultyOptions.length ? "Select Faculty" : "Loading faculty..."}</option>
                     {facultyOptions.map(f => (
-                      <option key={f.id ?? f.name} value={f.name}>{f.name}</option>
+                      <option key={f.id} value={f.id}>{f.name}</option>
                     ))}
                   </select>
                   <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -486,13 +532,20 @@ const SessionModal = ({
                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 block">Room</label>
                 <div className="relative">
                   <select
-                    value={form.room}
-                    onChange={e => setForm(f => ({ ...f, room: e.target.value }))}
+                    value={form.room_id}
+                    onChange={e => {
+                      const selected = roomOptions.find(r => String(r.id) === String(e.target.value));
+                      setForm(f => ({
+                        ...f,
+                        room_id: e.target.value,
+                        room_name: selected?.name ?? "",
+                      }));
+                    }}
                     className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 appearance-none pr-6"
                   >
-                    <option value="">Select Room</option>
+                    <option value="">{roomOptions.length ? "Select Room" : "Loading rooms..."}</option>
                     {roomOptions.map(r => (
-                      <option key={r.id ?? r.name} value={r.name}>{r.name}</option>
+                      <option key={r.id} value={r.id}>{r.name}</option>
                     ))}
                   </select>
                   <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -824,13 +877,13 @@ const AdminTimetableComponent = () => {
 
       await fetchTimetable();
 
-      // Fetch dropdown data for modal (non-blocking, best-effort)
+      // Fetch dropdown data for modal (DB-backed)
       const token2 = localStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token2}` };
       Promise.all([
-        fetch("http://localhost:5000/api/timetable/all-faculty", { headers }).then(r => r.json()).catch(() => null),
-        fetch("http://localhost:5000/api/rooms",     { headers }).then(r => r.json()).catch(() => null),
-        fetch("http://localhost:5000/api/subjects",  { headers }).then(r => r.json()).catch(() => null),
+        fetch("http://localhost:5000/api/timetable/faculty/all",   { headers }).then(r => r.json()).catch(() => null),
+        fetch("http://localhost:5000/api/timetable/rooms/all",     { headers }).then(r => r.json()).catch(() => null),
+        fetch("http://localhost:5000/api/timetable/subjects/all",  { headers }).then(r => r.json()).catch(() => null),
       ]).then(([facData, roomData, subData]) => {
         if (facData?.success  && Array.isArray(facData.data))  setFacultyList(facData.data);
         if (roomData?.success && Array.isArray(roomData.data)) setRoomsList(roomData.data);
@@ -945,19 +998,37 @@ const AdminTimetableComponent = () => {
       if (modalMode === "edit") {
         // Remove from original slot
         next[modalDay][modalDivision] = next[modalDay][modalDivision].filter(s =>
-          !(s.slot === modalSlot && s.subject === modalSession.subject)
+          !(String(s.id ?? "") && String(modalSession?.id ?? "") && String(s.id) === String(modalSession.id)) &&
+          !(s.slot === modalSlot && (s.subject_id ?? s.subject) === (modalSession.subject_id ?? modalSession.subject))
         );
         // Add to target slot (same or moved)
         const targetDay = shouldMove ? moveTarget.day : modalDay;
         const targetSlot = shouldMove ? moveTarget.slot : modalSlot;
         if (!next[targetDay]) next[targetDay] = {};
         if (!next[targetDay][modalDivision]) next[targetDay][modalDivision] = [];
-        next[targetDay][modalDivision].push({ ...form, slot: targetSlot });
+        next[targetDay][modalDivision].push({
+          ...modalSession,
+          ...form,
+          slot: targetSlot,
+          day: targetDay,
+          division: modalDivision,
+          subject: form.subject_name,
+          faculty: form.faculty_name,
+          room: form.room_name,
+        });
       } else {
         // Add new
         if (!next[modalDay]) next[modalDay] = {};
         if (!next[modalDay][modalDivision]) next[modalDay][modalDivision] = [];
-        next[modalDay][modalDivision].push({ ...form, slot: modalSlot });
+        next[modalDay][modalDivision].push({
+          ...form,
+          slot: modalSlot,
+          day: modalDay,
+          division: modalDivision,
+          subject: form.subject_name,
+          faculty: form.faculty_name,
+          room: form.room_name,
+        });
       }
       return next;
     });
@@ -973,14 +1044,59 @@ const AdminTimetableComponent = () => {
 
     setTimetable(prev => {
       const next = JSON.parse(JSON.stringify(prev));
-      // Remove from source
-      next[dragSource.day][dragSource.division] = next[dragSource.day][dragSource.division].filter(s =>
-        !(s.slot === dragSource.slotNumber && s.subject === dragSource.session.subject)
-      );
-      // Add to target
-      if (!next[target.day]) next[target.day] = {};
-      if (!next[target.day][target.division]) next[target.day][target.division] = [];
-      next[target.day][target.division].push({ ...dragSource.session, slot: target.slotNumber });
+
+      const srcList = next?.[dragSource.day]?.[dragSource.division] ?? [];
+      const tgtList = next?.[target.day]?.[target.division] ?? [];
+
+      const isSameCell =
+        dragSource.day === target.day &&
+        dragSource.slotNumber === target.slotNumber &&
+        dragSource.division === target.division;
+      if (isSameCell) return prev;
+
+      const srcAtSlot = srcList.filter(s => s.slot === dragSource.slotNumber && s.type !== "break");
+      const tgtAtSlot = tgtList.filter(s => s.slot === target.slotNumber && s.type !== "break");
+
+      const matchById = (a, b) => String(a?.id ?? "") && String(b?.id ?? "") && String(a.id) === String(b.id);
+      const removeSession = (arr, sess) =>
+        arr.filter(s => !matchById(s, sess) && !(s.slot === sess.slot && (s.subject_id ?? s.subject) === (sess.subject_id ?? sess.subject)));
+
+      const srcSession = dragSource.session;
+
+      // If target slot is empty -> move. If target has exactly 1 session and source slot has exactly 1 -> swap.
+      if (tgtAtSlot.length === 0) {
+        next[dragSource.day][dragSource.division] = removeSession(srcList, { ...srcSession, slot: dragSource.slotNumber });
+        if (!next[target.day]) next[target.day] = {};
+        if (!next[target.day][target.division]) next[target.day][target.division] = [];
+        next[target.day][target.division].push({
+          ...srcSession,
+          slot: target.slotNumber,
+          day: target.day,
+          division: target.division,
+        });
+      } else if (tgtAtSlot.length === 1 && srcAtSlot.length === 1) {
+        const tgtSession = tgtAtSlot[0];
+
+        next[dragSource.day][dragSource.division] = removeSession(srcList, { ...srcSession, slot: dragSource.slotNumber });
+        next[target.day][target.division] = removeSession(tgtList, { ...tgtSession, slot: target.slotNumber });
+
+        // Place swapped sessions
+        next[dragSource.day][dragSource.division].push({
+          ...tgtSession,
+          slot: dragSource.slotNumber,
+          day: dragSource.day,
+          division: dragSource.division,
+        });
+        next[target.day][target.division].push({
+          ...srcSession,
+          slot: target.slotNumber,
+          day: target.day,
+          division: target.division,
+        });
+      } else {
+        // Complex slots (multiple sessions) are not swapped to avoid corruption
+        return prev;
+      }
       return next;
     });
     setHasUnsavedChanges(true);

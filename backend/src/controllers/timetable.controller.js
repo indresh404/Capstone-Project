@@ -234,9 +234,21 @@ const getTimetableStats = async (req, res) => {
 // GET ALL FACULTY
 const getAllFaculty = async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT id, name FROM users WHERE role = 'faculty' ORDER BY name`
-    );
+    const result = await pool.query(`
+      SELECT 
+        u.id, 
+        u.name, 
+        u.college_id, 
+        u.email, 
+        u.phone,
+        COALESCE(
+          (SELECT json_agg(fs.subject_id) FROM faculty_subjects fs WHERE fs.faculty_id = u.id),
+          '[]'::json
+        ) as subject_ids
+      FROM users u 
+      WHERE u.role = 'faculty' 
+      ORDER BY u.name
+    `);
     res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('Error fetching faculty:', error);
@@ -405,7 +417,15 @@ const autoGenerate = async (req, res) => {
       if (!result[day]) result[day] = { A: [], B: [] };
       
       for (const div of Object.keys(rawTimetable[day])) {
-        result[day][div] = rawTimetable[day][div].map(s => normalizeSession(s, 'slot'));
+        // Don't send FREE PERIOD / zero sessions to the frontend for auto-generate.
+        // (They are useful internally, but they should not appear as "lectures" in the editor.)
+        result[day][div] = rawTimetable[day][div]
+          .map(s => normalizeSession(s, 'slot'))
+          .filter(s => {
+            const t = (s.type || "").toLowerCase();
+            const subj = (s.subject || "").toString().trim().toUpperCase();
+            return t !== "zero" && subj !== "FREE PERIOD";
+          });
       }
     }
 
