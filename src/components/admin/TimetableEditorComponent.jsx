@@ -1,1452 +1,757 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  Calendar, Clock, MapPin, BookOpen,
-  Users, Coffee, GraduationCap, Beaker, FileText,
-  X, Sparkles, Layers, Sun, Moon, Plus, Save,
-  Zap, AlertTriangle, CheckCircle, Edit3, Trash2,
-  ChevronDown, GripVertical, RefreshCw, Shield,
-} from "lucide-react";
+import React, { useState, useEffect, useCallback, useMemo, memo, useRef } from "react";
 import LottieComponent from "lottie-react";
-const Lottie = LottieComponent.default ?? LottieComponent;
 
-import mainAnimation  from "../../assets/tt_loading_main.json";
+const Lottie = LottieComponent.default ?? LottieComponent;
+import mainAnimation from "../../assets/tt_loading_main.json";
 import sideAnimation1 from "../../assets/tt_loading1.json";
 import sideAnimation2 from "../../assets/tt_loading2.json";
 import errorAnimation from "../../assets/tt_error.json";
 
-// ── Constants ────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+const todayStr = () => new Date().toISOString().split("T")[0];
 
-const TIME_SLOTS = {
-  1: { start: "09:15", end: "10:15", name: "Slot 1" },
-  2: { start: "10:15", end: "11:15", name: "Slot 2" },
-  3: { start: "11:15", end: "12:15", name: "Slot 3" },
-  4: { start: "12:15", end: "12:45", name: "Break" },
-  5: { start: "12:45", end: "13:45", name: "Slot 5" },
-  6: { start: "13:45", end: "14:45", name: "Slot 6" },
-  7: { start: "14:45", end: "15:45", name: "Slot 7" },
-  8: { start: "15:45", end: "16:45", name: "Slot 8" },
-};
+const fmtDate = (d) =>
+  new Date(d + "T00:00:00").toLocaleDateString("en-IN", {
+    weekday: "short", day: "numeric", month: "short", year: "numeric",
+  });
 
-const BREAK_SLOT = 4;
+const getInitials = (name = "") =>
+  name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 
-// NOTE: Subjects / faculty / rooms must be loaded from DB via API.
-// This component intentionally avoids hardcoded lists.
+const AVATAR_GRADIENTS = [
+  ["#6366f1", "#818cf8"], ["#10b981", "#34d399"], ["#f43f5e", "#fb7185"],
+  ["#f59e0b", "#fbbf24"], ["#06b6d4", "#38bdf8"], ["#8b5cf6", "#a78bfa"],
+  ["#ec4899", "#f472b6"], ["#14b8a6", "#2dd4bf"],
+];
+const getGradient = (id) => AVATAR_GRADIENTS[id % AVATAR_GRADIENTS.length];
 
-const SESSION_STYLES = {
-  theory: {
-    card: "bg-gradient-to-br from-blue-50 to-indigo-50 border-l-4 border-l-blue-500",
-    badge: "bg-blue-100 text-blue-700 border-blue-200",
-    icon: <BookOpen size={16} className="text-blue-600" />,
-    dot: "bg-blue-500",
+// ── Status Configuration ─────────────────────────────────────────────────────
+
+const STATUS = {
+  present: {
+    label: "Present", short: "P",
+    bg: "#ecfdf5", text: "#059669", border: "#a7f3d0",
+    activeBg: "#059669", activeText: "#fff", dot: "#10b981",
   },
-  lab: {
-    card: "bg-gradient-to-br from-green-50 to-emerald-50 border-l-4 border-l-green-500",
-    badge: "bg-green-100 text-green-700 border-green-200",
-    icon: <Beaker size={16} className="text-green-600" />,
-    dot: "bg-green-500",
+  absent: {
+    label: "Absent", short: "A",
+    bg: "#fff1f2", text: "#e11d48", border: "#fecdd3",
+    activeBg: "#e11d48", activeText: "#fff", dot: "#f43f5e",
   },
-  test: {
-    card: "bg-gradient-to-br from-red-50 to-amber-50 border-l-4 border-l-red-500",
-    badge: "bg-red-100 text-red-700 border-red-200",
-    icon: <FileText size={16} className="text-red-600" />,
-    dot: "bg-red-500",
+  leave: {
+    label: "Leave", short: "L",
+    bg: "#fffbeb", text: "#d97706", border: "#fde68a",
+    activeBg: "#d97706", activeText: "#fff", dot: "#f59e0b",
   },
-  break: {
-    card: "bg-gradient-to-br from-yellow-50 to-amber-50 border-l-4 border-l-yellow-400",
-    badge: "bg-yellow-100 text-yellow-700 border-yellow-200 font-bold",
-    icon: <Coffee size={16} className="text-yellow-600" />,
-    dot: "bg-yellow-500",
-  },
-  default: {
-    card: "bg-gradient-to-br from-slate-50 to-gray-50 border-l-4 border-l-slate-500",
-    badge: "bg-slate-100 text-slate-700 border-slate-200",
-    icon: <Clock size={16} className="text-slate-600" />,
-    dot: "bg-slate-500",
+  unmarked: {
+    label: "Unmarked", short: "?",
+    bg: "#f8fafc", text: "#94a3b8", border: "#e2e8f0",
+    activeBg: "#94a3b8", activeText: "#fff", dot: "#cbd5e1",
   },
 };
 
-const getStyle = (type) => SESSION_STYLES[type?.toLowerCase()] ?? SESSION_STYLES.default;
+const SUBJECT_STYLES = {
+  theory: { bg: "#eff6ff", text: "#1d4ed8", border: "#bfdbfe", dot: "#3b82f6" },
+  lab:    { bg: "#f0fdf4", text: "#15803d", border: "#bbf7d0", dot: "#22c55e" },
+  test:   { bg: "#fff1f2", text: "#be123c", border: "#fecdd3", dot: "#f43f5e" },
+};
 
-// ── Clash Detection ───────────────────────────────────────────────────────────
+const authHeaders = () => ({
+  Authorization: `Bearer ${localStorage.getItem("token")}`,
+  "Content-Type": "application/json",
+});
 
-function detectClashes(timetable) {
-  const clashes = [];
-  for (const day of DAYS) {
-    for (let slot = 1; slot <= 8; slot++) {
-      if (slot === BREAK_SLOT) continue;
-      const sessionsA = (timetable[day]?.A || []).filter(s => s.slot === slot);
-      const sessionsB = (timetable[day]?.B || []).filter(s => s.slot === slot);
-      const allSessions = [...sessionsA, ...sessionsB];
-      // Room clash
-      const rooms = allSessions.map(s => s.room).filter(Boolean);
-      const roomDupes = rooms.filter((r, i) => rooms.indexOf(r) !== i);
-      roomDupes.forEach(room => {
-        clashes.push({ day, slot, type: "room", message: `Room ${room} double-booked on ${day} Slot ${slot}` });
-      });
-      // Faculty clash
-      const faculties = allSessions.map(s => s.faculty).filter(f => f && f !== "NULL" && f !== "-");
-      const facDupes = faculties.filter((f, i) => faculties.indexOf(f) !== i);
-      facDupes.forEach(faculty => {
-        clashes.push({ day, slot, type: "faculty", message: `${faculty} has 2 classes on ${day} Slot ${slot}` });
-      });
-    }
-  }
-  return clashes;
+async function api(url, opts = {}) {
+  const r = await fetch(`http://localhost:5000${url}`, {
+    ...opts, headers: { ...authHeaders(), ...(opts.headers ?? {}) },
+  });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.message ?? `HTTP ${r.status}`);
+  return data;
 }
 
-// ── Stats ─────────────────────────────────────────────────────────────────────
+// ── Icons ─────────────────────────────────────────────────────────────────────
 
-function computeStats(timetable, division) {
-  if (!timetable) return { theory: 0, lab: 0, test: 0, total: 0 };
-  let theory = 0, lab = 0, test = 0;
-  for (const day of DAYS) {
-    const sessions = timetable[day]?.[division] ?? [];
-    for (const s of sessions) {
-      const t = s.type?.toLowerCase();
-      if (t === "theory") theory++;
-      else if (t === "lab") lab++;
-      else if (t === "test") test++;
-    }
-  }
-  return { theory, lab, test, total: theory + lab + test };
-}
+const PresentIcon = ({ size = 16, color }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.8}>
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+const AbsentIcon = ({ size = 16, color }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.8}>
+    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+const LeaveIcon = ({ size = 16, color }) => (
+  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2}>
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+    <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" />
+    <line x1="3" y1="10" x2="21" y2="10" />
+  </svg>
+);
+const SpinIcon = () => (
+  <svg style={{ animation: "spin 0.8s linear infinite" }} width="14" height="14" viewBox="0 0 24 24">
+    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity={0.25} />
+    <path fill="currentColor" opacity={0.75} d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+  </svg>
+);
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+const STATUS_ICONS = { present: PresentIcon, absent: AbsentIcon, leave: LeaveIcon };
 
-const BreakCard = () => (
-  <div className="rounded-xl overflow-hidden shadow-md ring-2 ring-yellow-300 ring-offset-1 h-[120px] flex flex-col">
-    <div className="bg-slate-900/5 px-3 py-1.5 text-xs font-medium text-slate-600 flex justify-between items-center border-b border-white/20">
-      <span className="flex items-center gap-1">
-        <Clock size={12} />
-        {TIME_SLOTS[BREAK_SLOT].start} – {TIME_SLOTS[BREAK_SLOT].end}
-      </span>
-      <span className="flex items-center gap-1 text-yellow-600 bg-yellow-100 px-2 py-0.5 rounded-full text-[10px] font-bold">
-        <Coffee size={10} /> BREAK
-      </span>
-    </div>
-    <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-yellow-50 to-amber-50">
-      <div className="flex flex-col items-center gap-1">
-        <Coffee size={20} className="text-yellow-500" />
-        <span className="text-xs font-bold text-yellow-600">Lunch Break</span>
-        <span className="text-[10px] text-yellow-500">30 min</span>
+// ── Shared styles ─────────────────────────────────────────────────────────────
+
+const btnPrimary = {
+  padding: "10px 22px", borderRadius: 12, border: "none", cursor: "pointer",
+  background: "linear-gradient(135deg, #6366f1, #4f46e5)",
+  color: "#fff", fontSize: 13, fontWeight: 600,
+  boxShadow: "0 4px 14px #6366f133", transition: "opacity .15s",
+};
+
+// ── Full-screen Loading ───────────────────────────────────────────────────────
+
+const LoadingScreen = ({ sideIdx, showSide }) => (
+  <div style={{
+    position: "fixed", inset: 0, zIndex: 9999, background: "#fff",
+    display: "flex", flexDirection: "column",
+    alignItems: "center", justifyContent: "center",
+    fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
+  }}>
+    <div style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 48 }}>
+      {/* Main animation */}
+      <div style={{ width: 340, height: 340 }}>
+        <Lottie animationData={mainAnimation} loop style={{ width: "100%", height: "100%" }} />
       </div>
+      {/* Cycling side animation */}
+      <div style={{ width: 220, height: 220, position: "relative" }}>
+        <div style={{
+          position: "absolute", inset: 0,
+          opacity: showSide ? 1 : 0,
+          transition: "opacity 0.35s ease",
+        }}>
+          <Lottie
+            animationData={sideIdx === 0 ? sideAnimation1 : sideAnimation2}
+            loop
+            style={{ width: "100%", height: "100%" }}
+          />
+        </div>
+      </div>
+    </div>
+    <div style={{ marginTop: 32, textAlign: "center" }}>
+      <h2 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: "#334155" }}>
+        Loading Faculty Panel
+      </h2>
+      <p style={{ margin: "8px 0 0", fontSize: 14, color: "#94a3b8" }}>
+        Fetching faculty and subject data…
+      </p>
     </div>
   </div>
 );
 
-// Admin session card with edit/delete
-const AdminSessionCard = ({
-  session, day, slotNumber, division, isCurrent, hasClash,
-  onEdit, onDelete, onDragStart, onDragOver, onDrop, isDragging,
-}) => {
-  const style = getStyle(session.type);
+// ── Error Screen ──────────────────────────────────────────────────────────────
+
+const ErrorScreen = ({ error, onRetry }) => (
+  <div style={{
+    position: "fixed", inset: 0, zIndex: 9999, background: "#fff",
+    display: "flex", flexDirection: "column",
+    alignItems: "center", justifyContent: "center",
+    fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
+  }}>
+    <div style={{ width: 260, height: 260 }}>
+      <Lottie animationData={errorAnimation} loop style={{ width: "100%", height: "100%" }} />
+    </div>
+    <h2 style={{ margin: "16px 0 8px", fontSize: 24, fontWeight: 800, color: "#1e293b" }}>
+      Failed to load data
+    </h2>
+    <p style={{ fontSize: 14, color: "#94a3b8", marginBottom: 28, textAlign: "center", maxWidth: 380 }}>{error}</p>
+    <button onClick={onRetry} style={btnPrimary}>Try Again</button>
+  </div>
+);
+
+// ── Memoized Sub-components ───────────────────────────────────────────────────
+
+const SubjectBadge = memo(({ subject }) => {
+  const style = SUBJECT_STYLES[subject.type?.toLowerCase()] ?? SUBJECT_STYLES.theory;
   return (
-    <motion.div
-      layout
-      draggable
-      onDragStart={() => onDragStart({ session, day, slotNumber, division })}
-      onDragOver={(e) => { e.preventDefault(); onDragOver({ day, slotNumber, division }); }}
-      onDrop={(e) => { e.preventDefault(); onDrop({ day, slotNumber, division }); }}
-      initial={{ opacity: 0, scale: 0.9, y: 10 }}
-      animate={{ opacity: isDragging ? 0.4 : 1, scale: 1, y: 0 }}
-      whileHover={{ scale: 1.02, y: -2 }}
-      className={`
-        group relative rounded-xl overflow-hidden h-[120px] flex flex-col cursor-grab active:cursor-grabbing
-        ${isCurrent ? "ring-2 ring-indigo-400 ring-offset-2" : ""}
-        ${hasClash ? "ring-2 ring-red-400 ring-offset-1" : ""}
-        shadow-md transition-all duration-300
-      `}
-    >
-      <div className="bg-slate-900/5 px-3 py-1.5 text-xs font-medium text-slate-600 flex justify-between items-center border-b border-white/20 shrink-0">
-        <span className="flex items-center gap-1">
-          <GripVertical size={10} className="text-slate-400" />
-          <Clock size={12} />
-          {TIME_SLOTS[slotNumber].start} – {TIME_SLOTS[slotNumber].end}
-        </span>
-        <div className="flex items-center gap-1">
-          {hasClash && (
-            <span className="flex items-center gap-0.5 text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full text-[9px] font-bold">
-              <AlertTriangle size={8} /> CLASH
-            </span>
-          )}
-          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold border ${style.badge}`}>
-            {session.type?.toUpperCase()}
-          </span>
-        </div>
-      </div>
-      <div className={`p-2 ${style.card} flex flex-col flex-1`}>
-        <div className="font-bold text-xs text-slate-800 mb-1 line-clamp-1">
-          {(session.subject_code || "").toString().trim() ? `${session.subject_code} — ` : ""}
-          {(session.subject_name ?? session.subject ?? "FREE").toString().substring(0, 28)}
-        </div>
-        <div className="space-y-0.5 flex-1">
-          {session.batch && session.batch !== "NULL" && session.batch !== "-" && (
-            <span className="bg-indigo-100 px-1.5 py-0.5 rounded text-indigo-700 font-medium text-[9px]">B{session.batch}</span>
-          )}
-          <div className="flex items-center gap-1 text-[9px] text-slate-500">
-            <MapPin size={8} /><span className="truncate">{session.room || "—"}</span>
-          </div>
-          {session.faculty && session.faculty !== "NULL" && session.faculty !== "-" && (
-            <div className="flex items-center gap-1 text-[9px] text-slate-500">
-              <GraduationCap size={8} /><span className="truncate">{session.faculty.split(" ")[0]}</span>
-            </div>
-          )}
-        </div>
-      </div>
-      {/* Edit/Delete overlay */}
-      <motion.div
-        className="absolute inset-0 z-10 bg-black/0 group-hover:bg-black/5 transition-colors rounded-xl flex items-end justify-end p-1.5 gap-1 pointer-events-none"
-        onClick={(e) => e.preventDefault()}
-      >
-        <motion.button
-          whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
-          onClick={(e) => { e.stopPropagation(); onEdit(session, day, slotNumber, division); }}
-          className="w-6 h-6 bg-white text-indigo-700 rounded-full flex items-center justify-center shadow-lg border border-indigo-200 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto"
-        >
-          <Edit3 size={10} />
-        </motion.button>
-        <motion.button
-          whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
-          onClick={(e) => { e.stopPropagation(); onDelete(day, slotNumber, division, session); }}
-          className="w-6 h-6 bg-white text-red-600 rounded-full flex items-center justify-center shadow-lg border border-red-200 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto"
-        >
-          <Trash2 size={10} />
-        </motion.button>
-      </motion.div>
-      {isCurrent && (
-        <motion.div
-          className="absolute top-1 left-1 w-2 h-2 bg-green-500 rounded-full"
-          animate={{ scale: [1, 1.5, 1] }}
-          transition={{ duration: 2, repeat: Infinity }}
-        />
-      )}
-    </motion.div>
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 4,
+      padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 600,
+      background: style.bg, color: style.text, border: `1px solid ${style.border}`,
+    }}>
+      <span style={{ width: 5, height: 5, borderRadius: "50%", background: style.dot, flexShrink: 0 }} />
+      {subject.code ?? subject.name}
+    </span>
   );
-};
+});
 
-const AdminSplitCard = ({
-  sessions,
-  day,
-  slotNumber,
-  division,
-  hasClash,
-  onEdit,
-  onDelete,
-  onDragStart,
-  onDragOver,
-  onDrop,
-  isDragging
-}) => (
-  <motion.div
-    layout
-    onDragOver={(e) => {
-      e.preventDefault();
-      onDragOver({ day, slotNumber, division });
-    }}
-    onDrop={(e) => {
-      e.preventDefault();
-      onDrop({ day, slotNumber, division });
-    }}
-    initial={{ opacity: 0, scale: 0.9, y: 10 }}
-    animate={{ opacity: isDragging ? 0.4 : 1, scale: 1, y: 0 }}
-    className={`relative rounded-xl overflow-hidden h-[120px] flex flex-col shadow-md
-      ${hasClash ? "ring-2 ring-red-400 ring-offset-1" : ""}`}
-  >
-    {/* Header */}
-    <div className="bg-slate-900/5 px-3 py-1.5 text-xs font-medium text-slate-600 flex justify-between items-center border-b border-white/20 shrink-0">
-      <span className="flex items-center gap-1">
-        <Clock size={12} />
-        {TIME_SLOTS[slotNumber].start} – {TIME_SLOTS[slotNumber].end}
-      </span>
-
-      <span className="flex items-center gap-1 text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full text-[10px]">
-        <Layers size={10} />
-        {sessions.length} Sessions
-      </span>
+const Avatar = memo(({ name, id, size = 48 }) => {
+  const [from, to] = getGradient(id);
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: size * 0.25,
+      background: `linear-gradient(135deg, ${from}, ${to})`,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      color: "#fff", fontWeight: 700, fontSize: size * 0.33, flexShrink: 0,
+      boxShadow: `0 4px 12px ${from}44`,
+    }}>
+      {getInitials(name)}
     </div>
+  );
+});
 
-    {/* Sessions */}
-    <div className="grid grid-cols-2 gap-1 p-1.5 flex-1 bg-white/40">
-      {sessions.map((session, idx) => {
-        const style = getStyle(session.type);
-
-        return (
-          <div
-            key={idx}
-            draggable
-            onDragStart={() =>
-              onDragStart({ session, day, slotNumber, division, idx })
-            }
-            className={`relative p-1 rounded-lg ${style.card} flex flex-col justify-between group cursor-grab`}
-          >
-            {/* Subject */}
-            <div className="font-bold text-[9px] text-slate-800 line-clamp-1">
-              {(session.subject_code || "").toString().trim()
-                ? `${session.subject_code} `
-                : ""}
-              {(session.subject_name ?? session.subject ?? "FREE")
-                .toString()
-                .substring(0, 10)}
-            </div>
-
-            {/* Room */}
-            <div className="flex items-center gap-0.5 text-[8px] text-slate-500 mt-0.5">
-              <MapPin size={8} />
-              <span className="truncate">{session.room || "—"}</span>
-            </div>
-
-            {/* Hover Controls */}
-            <div className="absolute inset-0 flex items-end justify-end p-1 gap-1 opacity-0 group-hover:opacity-100 transition-all">
-              
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit(session, day, slotNumber, division);
-                }}
-                className="w-6 h-6 bg-white text-indigo-700 rounded-full flex items-center justify-center shadow hover:bg-indigo-50"
-              >
-                <Edit3 size={14} />
-              </button>
-
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(day, slotNumber, division, session);
-                }}
-                className="w-6 h-6 bg-white text-red-600 rounded-full flex items-center justify-center shadow hover:bg-red-50"
-              >
-                <Trash2 size={14} />
-              </button>
-
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  </motion.div>
-);
-
-const AddSlotCard = ({ slotNumber, day, division, onAdd }) => (
-  <motion.div
-    whileHover={{ scale: 1.02, borderColor: "#6366f1" }}
-    onClick={() => onAdd(day, slotNumber, division)}
-    className="h-[120px] flex flex-col p-2 bg-slate-50/50 rounded-xl border-2 border-dashed border-slate-200 hover:border-indigo-300 transition-all cursor-pointer shadow-sm"
-  >
-    <div className="text-[10px] text-slate-400 mb-1 flex items-center gap-1 shrink-0">
-      <Clock size={10} />
-      {TIME_SLOTS[slotNumber].start} – {TIME_SLOTS[slotNumber].end}
-    </div>
-    <div className="flex-1 flex items-center justify-center">
-      <div className="flex flex-col items-center gap-1 text-slate-300 hover:text-indigo-400 transition-colors">
-        <Plus size={18} />
-        <span className="text-[9px] font-medium">Add Lecture</span>
+const StatsCard = memo(({ label, value, color, icon }) => {
+  const palette = {
+    indigo:  { bg: "#eef2ff", text: "#4338ca", accent: "#6366f1" },
+    emerald: { bg: "#ecfdf5", text: "#047857", accent: "#10b981" },
+    rose:    { bg: "#fff1f2", text: "#be123c", accent: "#f43f5e" },
+    amber:   { bg: "#fffbeb", text: "#b45309", accent: "#f59e0b" },
+    slate:   { bg: "#f1f5f9", text: "#475569", accent: "#64748b" },
+  };
+  const p = palette[color] ?? palette.indigo;
+  return (
+    <div style={{ background: p.bg, borderRadius: 16, padding: "18px 20px", border: `1.5px solid ${p.accent}22`, position: "relative", overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: -12, right: -12, width: 64, height: 64, borderRadius: "50%", background: `${p.accent}18` }} />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: p.text, lineHeight: 1 }}>{value}</div>
+          <div style={{ fontSize: 12, color: p.text, opacity: 0.75, marginTop: 4, fontWeight: 500 }}>{label}</div>
+        </div>
+        <div style={{ color: p.accent, opacity: 0.7 }}>{icon}</div>
       </div>
     </div>
-  </motion.div>
-);
+  );
+});
 
-// ── Edit / Add Session Modal ──────────────────────────────────────────────────
+const StatusToggle = memo(({ currentStatus, onStatusChange, facultyId }) => (
+  <div style={{ display: "flex", gap: 5, padding: 4, background: "#f1f5f9", borderRadius: 14 }}>
+    {["present", "absent", "leave"].map(status => {
+      const cfg = STATUS[status];
+      const active = currentStatus === status;
+      const Icon = STATUS_ICONS[status];
+      const iconColor = active ? "#fff" : cfg.text;
+      return (
+        <button
+          key={status}
+          title={cfg.label}
+          onClick={() => onStatusChange(facultyId, status)}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+            padding: "6px 12px", borderRadius: 9, border: "none", cursor: "pointer",
+            background: active ? cfg.activeBg : cfg.bg, color: iconColor,
+            transform: active ? "scale(1.05)" : "scale(1)", transition: "all .15s",
+            boxShadow: active ? `0 2px 8px ${cfg.activeBg}66` : "none",
+            fontWeight: 600, fontSize: 11,
+          }}
+        >
+          <Icon size={14} color={iconColor} />
+          <span style={{ color: iconColor }}>{cfg.label}</span>
+        </button>
+      );
+    })}
+  </div>
+));
 
-const SessionModal = ({
-  isOpen, session, day, slotNumber, division,
-  onClose, onSave, mode,
-  // DB-loaded lists
-  facultyList: facultyListProp,
-  roomsList: roomsListProp,
-  subjectsList: subjectsListProp,
-}) => {
-  const facultyOptions = Array.isArray(facultyListProp) ? facultyListProp : [];
-  const roomOptions = Array.isArray(roomsListProp) ? roomsListProp : [];
-  const subjectOptions = Array.isArray(subjectsListProp) ? subjectsListProp : [];
+// ── Subject Modal ─────────────────────────────────────────────────────────────
 
-  const [form, setForm] = useState({
-    subject_id: "",
-    subject_name: "",
-    subject_code: "",
-    type: "theory",
-    faculty_id: "",
-    faculty_name: "",
-    room_id: "",
-    room_name: "",
-    batch: "",
-  });
-  const [moveTarget, setMoveTarget] = useState({ day: day || "Monday", slot: slotNumber || 1 });
-  const [showMoveOptions, setShowMoveOptions] = useState(false);
+const SubjectModal = ({ open, faculty, subjects, onClose, onSave, saving }) => {
+  const [selected, setSelected] = useState([]);
+  const [filter, setFilter] = useState("all");
 
   useEffect(() => {
-    if (!isOpen) return;
-    setShowMoveOptions(false);
-    setMoveTarget({ day: day || "Monday", slot: slotNumber || 1 });
-    if (session) {
-      setForm({
-        subject_id: session.subject_id ?? "",
-        subject_name: session.subject_name ?? session.subject ?? "",
-        subject_code: session.subject_code ?? "",
-        type:    session.type    || "theory",
-        faculty_id: session.faculty_id ?? "",
-        faculty_name: session.faculty_name ?? session.faculty ?? "",
-        room_id: session.room_id ?? "",
-        room_name: session.room_name ?? session.room ?? "",
-        batch:   (session.batch === "Full Division" || session.batch === "-") ? "" : (session.batch || ""),
-      });
-    } else {
-      setForm({
-        subject_id: "",
-        subject_name: "",
-        subject_code: "",
-        type: "theory",
-        faculty_id: "",
-        faculty_name: "",
-        room_id: "",
-        room_name: "",
-        batch: "",
-      });
-    }
-  }, [session, day, slotNumber, isOpen]);
+    if (open && faculty) { setSelected(faculty.subjects?.map(s => s.id) ?? []); setFilter("all"); }
+  }, [open, faculty]);
 
-  const handleSave = () => {
-    if (!form.subject_id) return;
-    const shouldMove = mode === "edit" && showMoveOptions &&
-      (moveTarget.day !== day || moveTarget.slot !== slotNumber);
-    onSave(form, moveTarget, shouldMove);
-  };
+  if (!open || !faculty) return null;
+  const [from, to] = getGradient(faculty.id);
+  const filtered = filter === "all" ? subjects : subjects.filter(s => s.type === filter);
 
-  // Keep AnimatePresence OUTSIDE the null guard so exit animations work
   return (
-    <AnimatePresence>
-      {isOpen && (
-      <motion.div
-        key="modal-backdrop"
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-        onClick={onClose}
-      >
-        <motion.div
-          key="modal-panel"
-          initial={{ scale: 0.92, y: 24, opacity: 0 }}
-          animate={{ scale: 1, y: 0, opacity: 1 }}
-          exit={{ scale: 0.92, y: 24, opacity: 0 }}
-          transition={{ type: "spring", damping: 28, stiffness: 340 }}
-          className="bg-white rounded-3xl shadow-2xl max-w-md w-full border border-white/50 overflow-hidden"
-          onClick={e => e.stopPropagation()}
-        >
-          <div className="bg-gradient-to-r from-violet-600 to-indigo-600 p-6 text-white relative">
-            <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors">
-              <X size={18} />
-            </button>
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-white/20 rounded-xl">
-                {mode === "add" ? <Plus size={20} /> : <Edit3 size={20} />}
-              </div>
+    <div onClick={onClose} style={{
+      position: "fixed", inset: 0, zIndex: 50,
+      background: "rgba(15,23,42,0.55)", backdropFilter: "blur(4px)",
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: "#fff", borderRadius: 20, width: "100%", maxWidth: 440,
+        overflow: "hidden", boxShadow: "0 24px 64px rgba(15,23,42,0.2)",
+      }}>
+        <div style={{ background: `linear-gradient(135deg, ${from}, ${to})`, padding: "20px 24px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{
+                width: 48, height: 48, borderRadius: 12, background: "rgba(255,255,255,0.2)",
+                border: "2px solid rgba(255,255,255,0.35)", display: "flex", alignItems: "center",
+                justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 18,
+              }}>{getInitials(faculty.name)}</div>
               <div>
-                <h3 className="text-xl font-bold">{mode === "add" ? "Add Lecture" : "Edit Lecture"}</h3>
-                <p className="text-white/70 text-sm">{day} • {TIME_SLOTS[slotNumber]?.start} – {TIME_SLOTS[slotNumber]?.end} • Div {division}</p>
+                <div style={{ fontWeight: 700, color: "#fff", fontSize: 15 }}>{faculty.name}</div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.75)" }}>{selected.length} subjects selected</div>
               </div>
             </div>
+            <button onClick={onClose} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: 22, lineHeight: 1 }}>×</button>
           </div>
+        </div>
 
-          <div className="p-6 space-y-4">
-            {/* Subject */}
-            <div>
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 block">Subject</label>
-              <div className="relative">
-                <select
-                  value={form.subject_id}
-                  onChange={e => {
-                    const selected = subjectOptions.find(s => String(s.id) === String(e.target.value));
-                    setForm(f => ({
-                      ...f,
-                      subject_id: e.target.value,
-                      subject_name: selected?.name ?? "",
-                      subject_code: selected?.code ?? "",
-                      type: (selected?.type ?? f.type) || "theory",
-                    }));
-                  }}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 appearance-none pr-8"
-                >
-                  <option value="">{subjectOptions.length ? "Select Subject" : "Loading subjects..."}</option>
-                  {subjectOptions.map(s => (
-                    <option key={s.id} value={s.id}>
-                      {(s.code ? `${s.code} — ` : "") + (s.name ?? "").toString().substring(0, 30)}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              </div>
-            </div>
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid #f1f5f9" }}>
+          <div style={{ display: "flex", gap: 4, background: "#f1f5f9", padding: 4, borderRadius: 10 }}>
+            {["all", "theory", "lab", "test"].map(t => (
+              <button key={t} onClick={() => setFilter(t)} style={{
+                flex: 1, padding: "6px 0", borderRadius: 7, border: "none", cursor: "pointer",
+                fontSize: 11, fontWeight: 600, textTransform: "capitalize", transition: "all .15s",
+                background: filter === t ? "#fff" : "transparent",
+                color: filter === t ? "#1e293b" : "#94a3b8",
+                boxShadow: filter === t ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+              }}>{t}</button>
+            ))}
+          </div>
+        </div>
 
-            {/* Type */}
-            <div>
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 block">Session Type</label>
-              <div className="flex gap-2">
-                {["theory", "lab", "test"].map(t => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setForm(f => ({ ...f, type: t }))}
-                    className={`flex-1 py-2 rounded-xl text-xs font-bold capitalize transition-all ${
-                      form.type === t
-                        ? t === "theory" ? "bg-blue-500 text-white shadow-lg"
-                          : t === "lab" ? "bg-green-500 text-white shadow-lg"
-                          : "bg-red-500 text-white shadow-lg"
-                        : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              {/* Faculty */}
-              <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 block">Faculty</label>
-                <div className="relative">
-                  <select
-                    value={form.faculty_id}
-                    onChange={e => {
-                      const selected = facultyOptions.find(f => String(f.id) === String(e.target.value));
-                      setForm(f => ({
-                        ...f,
-                        faculty_id: e.target.value,
-                        faculty_name: selected?.name ?? "",
-                      }));
-                    }}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 appearance-none pr-6"
-                  >
-                    <option value="">{facultyOptions.length ? "Select Faculty" : "Loading faculty..."}</option>
-                    {facultyOptions.map(f => (
-                      <option key={f.id} value={f.id}>{f.name}</option>
-                    ))}
-                  </select>
-                  <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        <div style={{ padding: "12px 16px", maxHeight: 320, overflowY: "auto" }}>
+          {filtered.map(subject => {
+            const isSelected = selected.includes(subject.id);
+            const style = SUBJECT_STYLES[subject.type] ?? SUBJECT_STYLES.theory;
+            return (
+              <button key={subject.id}
+                onClick={() => setSelected(prev => isSelected ? prev.filter(id => id !== subject.id) : [...prev, subject.id])}
+                style={{
+                  width: "100%", display: "flex", alignItems: "center", gap: 12,
+                  padding: "10px 12px", borderRadius: 12, marginBottom: 6,
+                  border: isSelected ? `2px solid ${style.border}` : "2px solid transparent",
+                  background: isSelected ? style.bg : "#fafafa",
+                  cursor: "pointer", transition: "all .15s", textAlign: "left",
+                }}
+              >
+                <div style={{
+                  width: 34, height: 34, borderRadius: 8, display: "flex", alignItems: "center",
+                  justifyContent: "center", fontSize: 12, fontWeight: 700,
+                  background: isSelected ? "#fff" : "#e2e8f0",
+                  color: isSelected ? style.text : "#94a3b8",
+                }}>
+                  {isSelected ? "✓" : subject.code?.slice(0, 2)}
                 </div>
-              </div>
-
-              {/* Room */}
-              <div>
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 block">Room</label>
-                <div className="relative">
-                  <select
-                    value={form.room_id}
-                    onChange={e => {
-                      const selected = roomOptions.find(r => String(r.id) === String(e.target.value));
-                      setForm(f => ({
-                        ...f,
-                        room_id: e.target.value,
-                        room_name: selected?.name ?? "",
-                      }));
-                    }}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 appearance-none pr-6"
-                  >
-                    <option value="">{roomOptions.length ? "Select Room" : "Loading rooms..."}</option>
-                    {roomOptions.map(r => (
-                      <option key={r.id} value={r.id}>{r.name}</option>
-                    ))}
-                  </select>
-                  <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{subject.name}</div>
+                  <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>{subject.code} · {subject.lectures_per_week} lec/wk</div>
                 </div>
-              </div>
-            </div>
+              </button>
+            );
+          })}
+        </div>
 
-            {/* Batch */}
-            <div>
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 block">Batch (optional)</label>
-              <div className="flex gap-2">
-                {["", "1", "2", "3"].map(b => (
-                  <button
-                    key={b}
-                    onClick={() => setForm(f => ({ ...f, batch: b }))}
-                    className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
-                      form.batch === b
-                        ? "bg-indigo-500 text-white shadow-lg"
-                        : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                    }`}
-                  >
-                    {b === "" ? "Full Div" : `Batch ${b}`}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Move to different slot (edit only) */}
-            {mode === "edit" && (
-              <div>
-                <button
-                  onClick={() => setShowMoveOptions(p => !p)}
-                  className="flex items-center gap-2 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
-                >
-                  <RefreshCw size={12} />
-                  Move to different slot
-                  <ChevronDown size={12} className={`transition-transform ${showMoveOptions ? "rotate-180" : ""}`} />
-                </button>
-                <AnimatePresence>
-                  {showMoveOptions && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden mt-2"
-                    >
-                      <div className="grid grid-cols-2 gap-2 p-3 bg-indigo-50 rounded-xl">
-                        <div>
-                          <label className="text-[10px] font-semibold text-slate-400 uppercase mb-1 block">Day</label>
-                          <select
-                            value={moveTarget.day}
-                            onChange={e => setMoveTarget(t => ({ ...t, day: e.target.value }))}
-                            className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
-                          >
-                            {DAYS.map(d => <option key={d} value={d}>{d}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-semibold text-slate-400 uppercase mb-1 block">Slot</label>
-                          <select
-                            value={moveTarget.slot}
-                            onChange={e => setMoveTarget(t => ({ ...t, slot: Number(e.target.value) }))}
-                            className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
-                          >
-                            {[1, 2, 3, 5, 6, 7, 8].map(s => (
-                              <option key={s} value={s}>{TIME_SLOTS[s].start} – {TIME_SLOTS[s].end}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            )}
-          </div>
-
-          <div className="px-6 pb-6 flex gap-3">
-            <button type="button" onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-semibold text-sm hover:bg-slate-200 transition-colors">
-              Cancel
-            </button>
-            <motion.button
-              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-              type="button"
-              onClick={handleSave}
-              disabled={!form.subject}
-              className="flex-1 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-semibold text-sm shadow-lg disabled:opacity-40 flex items-center justify-center gap-2"
-            >
-              <CheckCircle size={16} />
-              {mode === "edit" && showMoveOptions ? "Save & Move" : mode === "add" ? "Add Lecture" : "Save Changes"}
-            </motion.button>
-          </div>
-        </motion.div>
-      </motion.div>
-    )}
-    </AnimatePresence>
+        <div style={{ padding: "12px 16px", borderTop: "1px solid #f1f5f9", display: "flex", gap: 8 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: "10px 0", borderRadius: 11, border: "none", cursor: "pointer", background: "#f1f5f9", color: "#475569", fontWeight: 600, fontSize: 13 }}>Cancel</button>
+          <button onClick={() => onSave(faculty.id, selected)} disabled={saving}
+            style={{ ...btnPrimary, flex: 1, padding: "10px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: saving ? 0.65 : 1 }}
+          >
+            {saving ? <><SpinIcon /> Saving…</> : "Save Changes"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 
-// ── Single Division Timetable Grid ────────────────────────────────────────────
+// ── Faculty Card ──────────────────────────────────────────────────────────────
 
-const DivisionGrid = ({
-  division, timetable, clashes, currentTime,
-  onAdd, onEdit, onDelete,
-  dragSource, setDragSource, dragTarget, setDragTarget, onDropComplete,
-}) => {
-  const getSessionsForDay = useCallback((day) => {
-    if (!timetable || !timetable[day]) return {};
-    const sessions = timetable[day][division] || [];
-    const grouped = {};
-    sessions.forEach(session => {
-      const slot = session.slot;
-      if (!grouped[slot]) grouped[slot] = [];
-      grouped[slot].push(session);
-    });
-    return grouped;
-  }, [timetable, division]);
-
-  const isCurrentSession = useCallback((day, slotNumber) => {
-    const now = currentTime;
-    const currentDay = DAYS[now.getDay() - 1];
-    if (currentDay !== day) return false;
-    const slot = TIME_SLOTS[slotNumber];
-    if (!slot) return false;
-    const [sh, sm] = slot.start.split(":").map(Number);
-    const [eh, em] = slot.end.split(":").map(Number);
-    const cur = now.getHours() * 60 + now.getMinutes();
-    return cur >= sh * 60 + sm && cur < eh * 60 + em;
-  }, [currentTime]);
-
-  const isClashSlot = useCallback((day, slotNumber) => {
-    return clashes.some(c => c.day === day && c.slot === slotNumber);
-  }, [clashes]);
-
-  const stats = computeStats(timetable, division);
-
-  return (
-    <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 overflow-hidden">
-      {/* Division header */}
-      <div className={`px-6 py-4 flex items-center justify-between bg-gradient-to-r ${
-        division === "A"
-          ? "from-indigo-500 to-violet-600"
-          : "from-emerald-500 to-teal-600"
-      }`}>
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-            <span className="text-white font-black text-xl">{division}</span>
-          </div>
+const FacultyCard = memo(({ faculty, onEdit }) => (
+  <div style={{ background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0", padding: "18px 20px", transition: "box-shadow .2s, border-color .2s" }}
+    onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 8px 24px rgba(99,102,241,0.10)"; e.currentTarget.style.borderColor = "#c7d2fe"; }}
+    onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "#e2e8f0"; }}
+  >
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+      <Avatar name={faculty.name} id={faculty.id} size={52} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
           <div>
-            <h2 className="text-white font-black text-2xl">Division {division}</h2>
-            <p className="text-white/70 text-xs">{stats.theory} Theory • {stats.lab} Labs • {stats.test} Tests</p>
+            <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>{faculty.name}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 10, fontFamily: "monospace", background: "#f1f5f9", color: "#64748b", padding: "2px 7px", borderRadius: 5, fontWeight: 600 }}>{faculty.college_id}</span>
+              <span style={{ fontSize: 11, color: "#94a3b8" }}>{faculty.email}</span>
+            </div>
           </div>
+          <button onClick={() => onEdit(faculty)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 11px", borderRadius: 8, border: "none", cursor: "pointer", background: "#eef2ff", color: "#4f46e5", fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
+            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+            Assign
+          </button>
         </div>
-        {clashes.filter(c => {
-          // Check if clash involves this division
-          return c.message.includes("Div") ? c.message.includes(`Div ${division}`) : true;
-        }).length > 0 && (
-          <div className="flex items-center gap-2 bg-red-500/80 text-white px-3 py-1.5 rounded-full text-xs font-bold">
-            <AlertTriangle size={12} />
-            {clashes.length} Clash{clashes.length > 1 ? "es" : ""}
+        <div style={{ marginTop: 12 }}>
+          <div style={{ fontSize: 10, color: "#cbd5e1", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Subjects</div>
+          {faculty.subjects?.length > 0 ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+              {faculty.subjects.map(s => <SubjectBadge key={s.id} subject={s} />)}
+            </div>
+          ) : <span style={{ fontSize: 11, color: "#cbd5e1", fontStyle: "italic" }}>No subjects assigned</span>}
+        </div>
+        {faculty.phone && (
+          <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 10, fontSize: 11, color: "#94a3b8" }}>
+            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+            {faculty.phone}
           </div>
         )}
       </div>
+    </div>
+  </div>
+));
 
-      {/* Day headers */}
-      <div className="grid grid-cols-5 gap-px bg-slate-200/50">
-        {DAYS.map((day, index) => {
-          const sessionCount = Object.values(getSessionsForDay(day))
-            .flat()
-            .filter(s => s.type !== "break" && s.type !== "zero").length;
-          const isToday = index === new Date().getDay() - 1;
-          return (
-            <div
-              key={day}
-              className={`bg-white/80 p-4 ${isToday ? "bg-gradient-to-br from-yellow-50 to-amber-50" : ""}`}
-            >
-              <div className="flex items-center gap-2">
-                {isToday ? <Sun className="text-yellow-500" size={18} /> : <Moon className="text-slate-400" size={18} />}
-                <div>
-                  <h3 className="font-bold text-slate-800 text-sm">{day}</h3>
-                  <p className="text-[10px] text-slate-500">{sessionCount} sessions</p>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+// ── Attendance Row ────────────────────────────────────────────────────────────
+
+const AttendanceRow = memo(({ faculty, status, onStatusChange }) => {
+  const cfg = STATUS[status] ?? STATUS.unmarked;
+  const Icon = STATUS_ICONS[status];
+  return (
+    <div style={{ padding: "14px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 14, background: "#fff" }}>
+      <div style={{ position: "relative", flexShrink: 0 }}>
+        <Avatar name={faculty.name} id={faculty.id} size={44} />
+        <div style={{ position: "absolute", bottom: -2, right: -2, width: 13, height: 13, borderRadius: "50%", background: cfg.dot, border: "2px solid #fff" }} />
       </div>
-
-      {/* Slot rows */}
-      <div className="grid grid-cols-5 gap-px bg-slate-200/50">
-        {DAYS.map(day => {
-          const groupedSessions = getSessionsForDay(day);
-          return (
-            <div key={day} className="bg-white/80 p-3 min-h-[700px]">
-              <div className="space-y-3">
-                {[1, 2, 3, 4, 5, 6, 7, 8].map(slotNumber => {
-                  if (slotNumber === BREAK_SLOT) return <BreakCard key={slotNumber} />;
-
-                  const sessions = groupedSessions[slotNumber] || [];
-                  const isCurrent = isCurrentSession(day, slotNumber);
-                  const hasClash = isClashSlot(day, slotNumber);
-                  const isDragging = dragSource?.day === day && dragSource?.slotNumber === slotNumber && dragSource?.division === division;
-                  const isDropTarget = dragTarget?.day === day && dragTarget?.slotNumber === slotNumber && dragTarget?.division === division;
-
-                  const commonProps = {
-                    day, slotNumber, division, isCurrent, hasClash,
-                    onEdit, onDelete,
-                    onDragStart: setDragSource,
-                    onDragOver: setDragTarget,
-                    onDrop: onDropComplete,
-                    isDragging,
-                  };
-
-                  return (
-                    <div
-                      key={slotNumber}
-                      className={`relative ${isDropTarget && !isDragging ? "ring-2 ring-indigo-400 ring-offset-1 rounded-xl" : ""}`}
-                    >
-                      {sessions.length === 0 ? (
-                        <AddSlotCard
-                          slotNumber={slotNumber}
-                          day={day}
-                          division={division}
-                          onAdd={onAdd}
-                        />
-                      ) : sessions.length > 1 ? (
-                        <AdminSplitCard sessions={sessions} {...commonProps} />
-                      ) : (
-                        <AdminSessionCard session={sessions[0]} {...commonProps} />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontWeight: 600, fontSize: 14, color: "#0f172a" }}>{faculty.name}</span>
+          <span style={{ fontSize: 10, fontFamily: "monospace", background: "#f1f5f9", color: "#64748b", padding: "2px 6px", borderRadius: 4, fontWeight: 600 }}>{faculty.college_id}</span>
+        </div>
+        <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>{faculty.email}</div>
+        {faculty.subjects?.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+            {faculty.subjects.slice(0, 2).map(s => <SubjectBadge key={s.id} subject={s} />)}
+            {faculty.subjects.length > 2 && <span style={{ fontSize: 10, color: "#94a3b8", background: "#f1f5f9", padding: "2px 7px", borderRadius: 5, fontWeight: 600 }}>+{faculty.subjects.length - 2}</span>}
+          </div>
+        )}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+        <span style={{ padding: "5px 11px", borderRadius: 8, fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 5, background: cfg.bg, color: cfg.text, border: `1px solid ${cfg.border}` }}>
+          {Icon ? <Icon size={13} color={cfg.text} /> : "—"} {cfg.label}
+        </span>
+        <StatusToggle currentStatus={status} onStatusChange={onStatusChange} facultyId={faculty.id} />
       </div>
     </div>
   );
-};
+});
 
-// ── Main Admin Timetable Component ────────────────────────────────────────────
+// ── Main Component ────────────────────────────────────────────────────────────
 
-const AdminTimetableComponent = () => {
-  const [timetable, setTimetable]             = useState(null);
-  const [loading, setLoading]                 = useState(true);
-  const [loadingState, setLoadingState]       = useState("loading");
-  const [saving, setSaving]                   = useState(false);
-  const [saveSuccess, setSaveSuccess]         = useState(false);
-  const [generating, setGenerating]           = useState(false);
-  const [currentTime, setCurrentTime]         = useState(new Date());
-  const [error, setError]                     = useState(null);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [sideAnimationIndex, setSideAnimationIndex] = useState(0);
-  const [showSideAnimation, setShowSideAnimation]   = useState(true);
+export default function FacultyComponent() {
+  const [faculty, setFaculty] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState("faculty");
 
-  // DB-loaded dropdown lists for the modal
-  const [facultyList, setFacultyList]         = useState([]);
-  const [roomsList, setRoomsList]             = useState([]);
-  const [subjectsList, setSubjectsList]       = useState([]);
+  // Loading animation state — cycling side animations like AdminTimetableComponent
+  const [sideIdx, setSideIdx] = useState(0);
+  const [showSide, setShowSide] = useState(true);
 
-  // Modal state
-  const [modalOpen, setModalOpen]             = useState(false);
-  const [modalMode, setModalMode]             = useState("add"); // "add" | "edit"
-  const [modalSession, setModalSession]       = useState(null);
-  const [modalDay, setModalDay]               = useState(null);
-  const [modalSlot, setModalSlot]             = useState(null);
-  const [modalDivision, setModalDivision]     = useState(null);
+  // Faculty tab
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedFaculty, setSelectedFaculty] = useState(null);
+  const [savingSubjects, setSavingSubjects] = useState(false);
+  const [toast, setToast] = useState(null);
 
-  // Drag state
-  const [dragSource, setDragSource]           = useState(null);
-  const [dragTarget, setDragTarget]           = useState(null);
+  // Attendance tab
+  const [selectedDate, setSelectedDate] = useState(todayStr());
+  const [attendance, setAttendance] = useState({});
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [attendanceSaving, setAttendanceSaving] = useState(false);
+  const [attendanceSearch, setAttendanceSearch] = useState("");
 
-  // Clash panel
-  const [showClashPanel, setShowClashPanel]   = useState(false);
+  // ── Toast ─────────────────────────────────────────────────────────────────
+  const showToast = useCallback((message, type = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  }, []);
 
-  const hasInitiallyLoaded = useRef(false);
-
-  const clashes = useMemo(() => timetable ? detectClashes(timetable) : [], [timetable]);
-
-  // Fetch timetable
-  const fetchTimetable = useCallback(async () => {
+  // ── Fetch Data with cycling animation ────────────────────────────────────
+  const fetchData = useCallback(async () => {
+    setLoading(true); setError(null);
     try {
-      const token = localStorage.getItem("token");
-      if (!token) { setError("Please login"); setLoadingState("error"); return; }
-      const [resA, resB] = await Promise.all([
-        fetch(`http://localhost:5000/api/timetable?division=A`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`http://localhost:5000/api/timetable?division=B`, { headers: { Authorization: `Bearer ${token}` } }),
+      const [facultyRes, subjectsRes] = await Promise.all([
+        api("/api/timetable/faculty/all"),
+        api("/api/timetable/subjects/all"),
       ]);
-      const dataA = await resA.json();
-      const dataB = await resB.json();
-      if (dataA.success && dataB.success) {
-        const merged = {};
-        for (const day of DAYS) {
-          merged[day] = { A: dataA.data[day]?.A || [], B: dataB.data[day]?.B || [] };
-        }
-        setTimetable(merged);
-      } else {
-        setError("Failed to load timetable");
+      const subjectMap = {};
+      (subjectsRes.data ?? []).forEach(s => { subjectMap[s.id] = s; });
+      setSubjects(subjectsRes.data ?? []);
+      if (facultyRes.success) {
+        setFaculty((facultyRes.data ?? []).map(f => ({
+          ...f,
+          subjects: (f.subject_ids ?? []).map(id => subjectMap[id]).filter(Boolean),
+        })));
       }
     } catch (err) {
-      setError(err.message || "Error loading timetable");
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  // Initial load
+  // Start side animation cycle on mount while loading
   useEffect(() => {
     let mounted = true;
-    let maxTimer, minTimer, animationCycleTimer;
-
-    const initialLoad = async () => {
-      setLoadingState("loading");
-      setLoading(true);
-
-      animationCycleTimer = setInterval(() => {
+    const cycleTimer = setInterval(() => {
+      if (!mounted) return;
+      setShowSide(false);
+      setTimeout(() => {
         if (!mounted) return;
-        setShowSideAnimation(false);
-        setTimeout(() => {
-          if (!mounted) return;
-          setSideAnimationIndex(prev => prev === 0 ? 1 : 0);
-          setShowSideAnimation(true);
-        }, 400);
-      }, 2500);
+        setSideIdx(prev => prev === 0 ? 1 : 0);
+        setShowSide(true);
+      }, 350);
+    }, 2500);
 
-      maxTimer = setTimeout(() => {
-        if (mounted) { setLoadingState("error"); clearInterval(animationCycleTimer); }
-      }, 10000);
+    fetchData().finally(() => {
+      if (mounted) clearInterval(cycleTimer);
+    });
 
-      await fetchTimetable();
-
-      // Fetch dropdown data for modal (DB-backed)
-      const token2 = localStorage.getItem("token");
-      const headers = { Authorization: `Bearer ${token2}` };
-      Promise.all([
-        fetch("http://localhost:5000/api/timetable/faculty/all",   { headers }).then(r => r.json()).catch(() => null),
-        fetch("http://localhost:5000/api/timetable/rooms/all",     { headers }).then(r => r.json()).catch(() => null),
-        fetch("http://localhost:5000/api/timetable/subjects/all",  { headers }).then(r => r.json()).catch(() => null),
-      ]).then(([facData, roomData, subData]) => {
-        if (facData?.success  && Array.isArray(facData.data))  setFacultyList(facData.data);
-        if (roomData?.success && Array.isArray(roomData.data)) setRoomsList(roomData.data);
-        if (subData?.success  && Array.isArray(subData.data))  setSubjectsList(subData.data);
-      });
-
-      minTimer = setTimeout(() => {
-        if (mounted) {
-          clearTimeout(maxTimer);
-          clearInterval(animationCycleTimer);
-          setLoading(false);
-          hasInitiallyLoaded.current = true;
-        }
-      }, 5000);
-    };
-
-    initialLoad();
-    const timeInterval = setInterval(() => { if (mounted) setCurrentTime(new Date()); }, 60000);
-    return () => {
-      mounted = false;
-      clearTimeout(maxTimer);
-      clearTimeout(minTimer);
-      clearInterval(animationCycleTimer);
-      clearInterval(timeInterval);
-    };
+    return () => { mounted = false; clearInterval(cycleTimer); };
   }, []);
 
-  // Auto Generate
-  const handleAutoGenerate = useCallback(async () => {
-    setGenerating(true);
+  // ── Fetch Attendance ──────────────────────────────────────────────────────
+  const fetchAttendance = useCallback(async (date) => {
+    setAttendanceLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:5000/api/timetable/generate", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ semester: "even", year: 2026 }),
-      });
-      const data = await response.json();
-      if (data.success) {
-        setTimetable(data.data);
-        setHasUnsavedChanges(true);
-      }
-    } catch (err) {
-      console.error("Auto-generate error:", err);
-    } finally {
-      setGenerating(false);
-    }
+      const data = await api(`/api/faculty/attendance?date=${date}`);
+      const map = {};
+      if (data.success) data.data.forEach(r => { map[r.faculty_id] = r.status; });
+      setAttendance(map);
+    } catch { setAttendance({}); }
+    finally { setAttendanceLoading(false); }
   }, []);
 
-  // Save to DB
-  const handleSave = useCallback(async () => {
-    if (!timetable || clashes.length > 0) return;
-    setSaving(true);
+  useEffect(() => {
+    if (activeTab === "attendance") fetchAttendance(selectedDate);
+  }, [activeTab, selectedDate, fetchAttendance]);
+
+  // ── Save Subjects ─────────────────────────────────────────────────────────
+  const handleSaveSubjects = useCallback(async (facultyId, subjectIds) => {
+    setSavingSubjects(true);
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:5000/api/timetable/save", {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ timetable }),
-      });
-      const data = await response.json();
-      if (data.success) {
-        setSaveSuccess(true);
-        setHasUnsavedChanges(false);
-        setTimeout(() => setSaveSuccess(false), 3000);
-      }
-    } catch (err) {
-      console.error("Save error:", err);
-    } finally {
-      setSaving(false);
+      await api(`/api/faculty/${facultyId}/subjects`, { method: "PUT", body: JSON.stringify({ subject_ids: subjectIds }) });
+      const subjectMap = {};
+      subjects.forEach(s => { subjectMap[s.id] = s; });
+      setFaculty(prev => prev.map(f =>
+        f.id === facultyId ? { ...f, subject_ids: subjectIds, subjects: subjectIds.map(id => subjectMap[id]).filter(Boolean) } : f
+      ));
+      setSelectedFaculty(null);
+      showToast("Subjects updated successfully");
+    } catch (err) { showToast(err.message, "error"); }
+    finally { setSavingSubjects(false); }
+  }, [subjects, showToast]);
+
+  // ── Save Attendance ───────────────────────────────────────────────────────
+  const handleSaveAttendance = useCallback(async () => {
+    setAttendanceSaving(true);
+    try {
+      const records = faculty
+        .filter(f => attendance[f.id] && attendance[f.id] !== "unmarked")
+        .map(f => ({ faculty_id: f.id, status: attendance[f.id] }));
+      await api("/api/faculty/attendance", { method: "PUT", body: JSON.stringify({ date: selectedDate, records }) });
+      showToast("Attendance saved successfully");
+    } catch (err) { showToast(err.message, "error"); }
+    finally { setAttendanceSaving(false); }
+  }, [faculty, attendance, selectedDate, showToast]);
+
+  const handleDateChange = useCallback((days) => {
+    const date = new Date(selectedDate + "T00:00:00");
+    date.setDate(date.getDate() + days);
+    setSelectedDate(date.toISOString().split("T")[0]);
+  }, [selectedDate]);
+
+  const handleMarkAll = useCallback((status) => {
+    const m = {};
+    faculty.forEach(f => { m[f.id] = status; });
+    setAttendance(m);
+  }, [faculty]);
+
+  const handleStatusChange = useCallback((facultyId, status) => {
+    setAttendance(prev => ({ ...prev, [facultyId]: prev[facultyId] === status ? "unmarked" : status }));
+  }, []);
+
+  // ── Filtering ─────────────────────────────────────────────────────────────
+  const filteredFaculty = useMemo(() => {
+    let r = faculty;
+    if (statusFilter === "assigned") r = r.filter(f => f.subjects?.length > 0);
+    else if (statusFilter === "unassigned") r = r.filter(f => !f.subjects?.length);
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      r = r.filter(f => f.name?.toLowerCase().includes(q) || f.college_id?.toLowerCase().includes(q) || f.email?.toLowerCase().includes(q));
     }
-  }, [timetable, clashes]);
+    return r;
+  }, [faculty, searchQuery, statusFilter]);
 
-  // Add session
-  const handleAdd = useCallback((day, slotNumber, division) => {
-    setModalMode("add");
-    setModalSession(null);
-    setModalDay(day);
-    setModalSlot(slotNumber);
-    setModalDivision(division);
-    setModalOpen(true);
-  }, []);
+  const filteredAttendance = useMemo(() => {
+    if (!attendanceSearch) return faculty;
+    const q = attendanceSearch.toLowerCase();
+    return faculty.filter(f => f.name?.toLowerCase().includes(q) || f.college_id?.toLowerCase().includes(q));
+  }, [faculty, attendanceSearch]);
 
-  // Edit session
-  const handleEdit = useCallback((session, day, slotNumber, division) => {
-    setModalMode("edit");
-    setModalSession(session);
-    setModalDay(day);
-    setModalSlot(slotNumber);
-    setModalDivision(division);
-    setModalOpen(true);
-  }, []);
+  const attendanceStats = useMemo(() => {
+    const present = Object.values(attendance).filter(s => s === "present").length;
+    const absent  = Object.values(attendance).filter(s => s === "absent").length;
+    const leave   = Object.values(attendance).filter(s => s === "leave").length;
+    return { present, absent, leave, unmarked: faculty.length - present - absent - leave };
+  }, [attendance, faculty]);
 
-  // Delete session
-  const handleDelete = useCallback((day, slotNumber, division, session) => {
-    setTimetable(prev => {
-      const next = JSON.parse(JSON.stringify(prev));
-      const sessions = next[day][division];
-      next[day][division] = sessions.filter(s =>
-        !(s.slot === slotNumber && s.subject === session.subject && s.faculty === session.faculty)
-      );
-      return next;
-    });
-    setHasUnsavedChanges(true);
-  }, []);
+  // ── Render loading / error full-screen ────────────────────────────────────
+  if (loading) return <LoadingScreen sideIdx={sideIdx} showSide={showSide} />;
+  if (error)   return <ErrorScreen error={error} onRetry={fetchData} />;
 
-  // Save modal
-  const handleModalSave = useCallback((form, moveTarget, shouldMove) => {
-    setTimetable(prev => {
-      const next = JSON.parse(JSON.stringify(prev));
-
-      if (modalMode === "edit") {
-        // Remove from original slot
-        next[modalDay][modalDivision] = next[modalDay][modalDivision].filter(s =>
-          !(String(s.id ?? "") && String(modalSession?.id ?? "") && String(s.id) === String(modalSession.id)) &&
-          !(s.slot === modalSlot && (s.subject_id ?? s.subject) === (modalSession.subject_id ?? modalSession.subject))
-        );
-        // Add to target slot (same or moved)
-        const targetDay = shouldMove ? moveTarget.day : modalDay;
-        const targetSlot = shouldMove ? moveTarget.slot : modalSlot;
-        if (!next[targetDay]) next[targetDay] = {};
-        if (!next[targetDay][modalDivision]) next[targetDay][modalDivision] = [];
-        next[targetDay][modalDivision].push({
-          ...modalSession,
-          ...form,
-          slot: targetSlot,
-          day: targetDay,
-          division: modalDivision,
-          subject: form.subject_name,
-          faculty: form.faculty_name,
-          room: form.room_name,
-        });
-      } else {
-        // Add new
-        if (!next[modalDay]) next[modalDay] = {};
-        if (!next[modalDay][modalDivision]) next[modalDay][modalDivision] = [];
-        next[modalDay][modalDivision].push({
-          ...form,
-          slot: modalSlot,
-          day: modalDay,
-          division: modalDivision,
-          subject: form.subject_name,
-          faculty: form.faculty_name,
-          room: form.room_name,
-        });
-      }
-      return next;
-    });
-    setHasUnsavedChanges(true);
-    setModalOpen(false);
-  }, [modalMode, modalDay, modalSlot, modalDivision, modalSession]);
-
-  // Drag drop
-  const handleDropComplete = useCallback((target) => {
-    if (!dragSource || !target) return;
-    if (dragSource.day === target.day && dragSource.slotNumber === target.slotNumber && dragSource.division === target.division) return;
-    if (target.slotNumber === BREAK_SLOT) return;
-
-    setTimetable(prev => {
-      const next = JSON.parse(JSON.stringify(prev));
-
-      const srcList = next?.[dragSource.day]?.[dragSource.division] ?? [];
-      const tgtList = next?.[target.day]?.[target.division] ?? [];
-
-      const isSameCell =
-        dragSource.day === target.day &&
-        dragSource.slotNumber === target.slotNumber &&
-        dragSource.division === target.division;
-      if (isSameCell) return prev;
-
-      const srcAtSlot = srcList.filter(s => s.slot === dragSource.slotNumber && s.type !== "break");
-      const tgtAtSlot = tgtList.filter(s => s.slot === target.slotNumber && s.type !== "break");
-
-      const matchById = (a, b) => String(a?.id ?? "") && String(b?.id ?? "") && String(a.id) === String(b.id);
-      const removeSession = (arr, sess) =>
-        arr.filter(s => !matchById(s, sess) && !(s.slot === sess.slot && (s.subject_id ?? s.subject) === (sess.subject_id ?? sess.subject)));
-
-      const srcSession = dragSource.session;
-
-      // If target slot is empty -> move. If target has exactly 1 session and source slot has exactly 1 -> swap.
-      if (tgtAtSlot.length === 0) {
-        next[dragSource.day][dragSource.division] = removeSession(srcList, { ...srcSession, slot: dragSource.slotNumber });
-        if (!next[target.day]) next[target.day] = {};
-        if (!next[target.day][target.division]) next[target.day][target.division] = [];
-        next[target.day][target.division].push({
-          ...srcSession,
-          slot: target.slotNumber,
-          day: target.day,
-          division: target.division,
-        });
-      } else if (tgtAtSlot.length === 1 && srcAtSlot.length === 1) {
-        const tgtSession = tgtAtSlot[0];
-
-        next[dragSource.day][dragSource.division] = removeSession(srcList, { ...srcSession, slot: dragSource.slotNumber });
-        next[target.day][target.division] = removeSession(tgtList, { ...tgtSession, slot: target.slotNumber });
-
-        // Place swapped sessions
-        next[dragSource.day][dragSource.division].push({
-          ...tgtSession,
-          slot: dragSource.slotNumber,
-          day: dragSource.day,
-          division: dragSource.division,
-        });
-        next[target.day][target.division].push({
-          ...srcSession,
-          slot: target.slotNumber,
-          day: target.day,
-          division: target.division,
-        });
-      } else {
-        // Complex slots (multiple sessions) are not swapped to avoid corruption
-        return prev;
-      }
-      return next;
-    });
-    setHasUnsavedChanges(true);
-    setDragSource(null);
-    setDragTarget(null);
-  }, [dragSource]);
-
-  // ── Loading / Error ────────────────────────────────────────────────────────
-
-  if (loading || loadingState === "error") {
-    return (
-      <div className="h-screen w-full bg-white flex flex-col items-center justify-center overflow-hidden px-4">
-        <div className="flex flex-col lg:flex-row items-center justify-center gap-12">
-          <motion.div
-            initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.8 }}
-            className="w-80 h-80 lg:w-96 lg:h-96"
-          >
-            <AnimatePresence mode="wait">
-              {loadingState === "loading" ? (
-                <motion.div key="main-loading" initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.85 }} transition={{ duration: 0.5 }} className="w-full h-full">
-                  <Lottie animationData={mainAnimation} loop className="w-full h-full" />
-                </motion.div>
-              ) : (
-                <motion.div key="main-error" initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.85 }} transition={{ duration: 0.5 }} className="w-full h-full">
-                  <Lottie animationData={errorAnimation} loop className="w-full h-full" />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-
-          {loadingState === "loading" && (
-            <motion.div initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.8 }} className="relative w-64 h-64 lg:w-72 lg:h-72">
-              <AnimatePresence mode="wait">
-                {showSideAnimation && (
-                  <motion.div key={sideAnimationIndex} initial={{ opacity: 0, x: 60, scale: 0.9 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, x: -60, scale: 0.9 }} transition={{ duration: 0.4, ease: "easeInOut" }} className="absolute inset-0">
-                    <Lottie animationData={sideAnimationIndex === 0 ? sideAnimation1 : sideAnimation2} loop className="w-full h-full" />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          )}
-        </div>
-        <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }} className="mt-10 text-center">
-          <h2 className="text-3xl font-bold text-slate-700 mb-2">
-            {loadingState === "loading" ? "Loading Admin Panel" : "Taking Too Long?"}
-          </h2>
-          <p className="text-slate-400 text-sm">
-            {loadingState === "loading"
-              ? "Fetching both divisions for admin view..."
-              : "We're having trouble connecting. Please refresh."}
-          </p>
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="h-screen flex flex-col items-center justify-center px-4">
-        <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} className="w-64 h-64">
-          <Lottie animationData={errorAnimation} loop className="w-full h-full" />
-        </motion.div>
-        <h3 className="text-2xl font-bold text-slate-700 mt-6 mb-2">Oops! Something went wrong</h3>
-        <p className="text-slate-400 text-sm">{error}</p>
-      </div>
-    );
-  }
-
-  // ── Main Admin View ────────────────────────────────────────────────────────
+  // ── Shared input style ────────────────────────────────────────────────────
+  const inputStyle = {
+    width: "100%", padding: "9px 12px 9px 36px", borderRadius: 11,
+    border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none",
+    background: "#fff", color: "#1e293b", boxSizing: "border-box",
+  };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 via-violet-50/30 to-indigo-50/30 px-6 py-6">
-      <div className="w-full space-y-6">
+    <div style={{ minHeight: "100vh", background: "#f8fafc", padding: "24px 24px 48px", fontFamily: "'DM Sans', 'Segoe UI', sans-serif" }}>
 
-        {/* Header */}
-        <motion.div
-          initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6, type: "spring" }}
-          className="bg-white/80 backdrop-blur-xl rounded-2xl p-6 shadow-xl border border-white/50"
-        >
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <motion.div className="flex items-center gap-3" initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.2 }}>
-              <div className="p-3 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl shadow-lg">
-                <Shield className="text-white" size={28} />
-              </div>
-              <div>
-                <h1 className="text-4xl font-black bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
-                  Admin Timetable
-                </h1>
-                <p className="text-slate-500 flex items-center gap-2 text-sm">
-                  <Sparkles size={14} className="text-yellow-500" />
-                  Computer Engineering • Even Semester • 2026 • Both Divisions
-                </p>
-              </div>
-            </motion.div>
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: "fixed", top: 16, right: 16, zIndex: 100,
+          padding: "12px 18px", borderRadius: 12, fontSize: 13, fontWeight: 600,
+          display: "flex", alignItems: "center", gap: 8,
+          background: toast.type === "success" ? "#ecfdf5" : "#fff1f2",
+          color: toast.type === "success" ? "#059669" : "#e11d48",
+          border: `1.5px solid ${toast.type === "success" ? "#a7f3d0" : "#fecdd3"}`,
+          boxShadow: "0 8px 24px rgba(0,0,0,0.09)", animation: "slideIn .25s ease",
+        }}>
+          <style>{`@keyframes slideIn { from { opacity:0; transform:translateY(-8px);} to { opacity:1; transform:none; } }`}</style>
+          {toast.type === "success" ? <PresentIcon size={14} color="#059669" /> : <AbsentIcon size={14} color="#e11d48" />}
+          {toast.message}
+        </div>
+      )}
 
-            <div className="flex items-center gap-3 flex-wrap">
-              {/* Clash indicator */}
-              {clashes.length > 0 && (
-                <motion.button
-                  onClick={() => setShowClashPanel(p => !p)}
-                  animate={{ scale: [1, 1.03, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-red-50 border border-red-200 text-red-600 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors"
-                >
-                  <AlertTriangle size={16} />
-                  {clashes.length} Clash{clashes.length > 1 ? "es" : ""}
-                </motion.button>
-              )}
-              {clashes.length === 0 && timetable && (
-                <div className="flex items-center gap-2 px-4 py-2.5 bg-green-50 border border-green-200 text-green-600 rounded-xl font-bold text-sm">
-                  <CheckCircle size={16} />
-                  No Clashes
-                </div>
-              )}
-
-              {/* Auto Generate */}
-              <motion.button
-                whileHover={{ scale: generating ? 1 : 1.03 }} whileTap={{ scale: generating ? 1 : 0.97 }}
-                onClick={handleAutoGenerate}
-                disabled={generating}
-                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-shadow disabled:opacity-80"
-              >
-                {generating ? (
-                  <><RefreshCw size={16} className="animate-spin" /> Generating...</>
-                ) : (
-                  <><Zap size={16} /> Auto Generate</>
-                )}
-              </motion.button>
-
-              {/* Save */}
-              <motion.button
-                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                onClick={handleSave}
-                disabled={saving || !hasUnsavedChanges || clashes.length > 0}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg transition-all ${
-                  saveSuccess
-                    ? "bg-green-500 text-white"
-                    : hasUnsavedChanges && clashes.length === 0
-                    ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:shadow-xl"
-                    : "bg-slate-200 text-slate-400 cursor-not-allowed"
-                }`}
-              >
-                {saving ? (
-                  <><RefreshCw size={16} className="animate-spin" /> Saving...</>
-                ) : saveSuccess ? (
-                  <><CheckCircle size={16} /> Saved!</>
-                ) : (
-                  <><Save size={16} /> Save Changes</>
-                )}
-              </motion.button>
-            </div>
-          </div>
-
-          {/* Unsaved changes banner */}
-          <AnimatePresence>
-            {hasUnsavedChanges && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="mt-4 overflow-hidden"
-              >
-                <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium ${
-                  clashes.length > 0
-                    ? "bg-red-50 border border-red-200 text-red-600"
-                    : "bg-amber-50 border border-amber-200 text-amber-700"
-                }`}>
-                  {clashes.length > 0 ? (
-                    <><AlertTriangle size={14} /> Resolve {clashes.length} clash{clashes.length > 1 ? "es" : ""} before saving</>
-                  ) : (
-                    <><Edit3 size={14} /> You have unsaved changes — click Save Changes to push to database</>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-
-        {/* Clash Panel */}
-        <AnimatePresence>
-          {showClashPanel && clashes.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-red-200 overflow-hidden"
-            >
-              <div className="bg-gradient-to-r from-red-500 to-rose-500 px-6 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-white font-bold">
-                  <AlertTriangle size={18} />
-                  Schedule Clashes ({clashes.length})
-                </div>
-                <button onClick={() => setShowClashPanel(false)} className="text-white/70 hover:text-white">
-                  <X size={18} />
-                </button>
-              </div>
-              <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {clashes.map((clash, i) => (
-                  <div key={i} className="flex items-start gap-3 p-3 bg-red-50 rounded-xl border border-red-100">
-                    <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${clash.type === "room" ? "bg-orange-500" : "bg-red-500"}`} />
-                    <div>
-                      <p className="text-xs font-bold text-red-700 uppercase tracking-wide">{clash.type} clash</p>
-                      <p className="text-sm text-slate-700 mt-0.5">{clash.message}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Division A & B — wrapped in relative container for generating overlay */}
-        <div className="relative">
-          {/* Inline generating overlay — only covers the grids, not full screen */}
-          <AnimatePresence>
-            {generating && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute inset-0 z-20 bg-white/80 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center gap-6"
-              >
-                <div className="flex items-center gap-8">
-                  <div className="w-48 h-48">
-                    <Lottie animationData={mainAnimation} loop className="w-full h-full" />
-                  </div>
-                  <div className="relative w-36 h-36">
-                    <AnimatePresence mode="wait">
-                      {showSideAnimation && (
-                        <motion.div
-                          key={sideAnimationIndex}
-                          initial={{ opacity: 0, x: 30, scale: 0.9 }}
-                          animate={{ opacity: 1, x: 0, scale: 1 }}
-                          exit={{ opacity: 0, x: -30, scale: 0.9 }}
-                          transition={{ duration: 0.35 }}
-                          className="absolute inset-0"
-                        >
-                          <Lottie animationData={sideAnimationIndex === 0 ? sideAnimation1 : sideAnimation2} loop className="w-full h-full" />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </div>
-                <motion.div
-                  animate={{ opacity: [0.6, 1, 0.6] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="text-center"
-                >
-                  <p className="text-xl font-black bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
-                    Auto-Generating Timetable
-                  </p>
-                  <p className="text-sm text-slate-400 mt-1">Optimizing schedules for both divisions...</p>
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Division A Timetable */}
-          <motion.div
-            initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }}
-            className="mb-6"
-          >
-            <DivisionGrid
-              division="A"
-              timetable={timetable}
-              clashes={clashes}
-              currentTime={currentTime}
-              onAdd={handleAdd}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              dragSource={dragSource}
-              setDragSource={setDragSource}
-              dragTarget={dragTarget}
-              setDragTarget={setDragTarget}
-              onDropComplete={handleDropComplete}
-            />
-          </motion.div>
-
-          {/* Division B Timetable */}
-          <motion.div
-            initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.5 }}
-          >
-            <DivisionGrid
-              division="B"
-              timetable={timetable}
-              clashes={clashes}
-              currentTime={currentTime}
-              onAdd={handleAdd}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              dragSource={dragSource}
-              setDragSource={setDragSource}
-              dragTarget={dragTarget}
-              setDragTarget={setDragTarget}
-            onDropComplete={handleDropComplete}
-            />
-          </motion.div>
-        </div>{/* end relative wrapper */}
-
-        {/* Legend */}
-        <motion.div
-          initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.6 }}
-          className="bg-white/80 backdrop-blur-xl rounded-xl p-4 shadow-lg border border-white/50"
-        >
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-6 flex-wrap">
-              {[
-                { color: "bg-blue-500",   label: "Theory" },
-                { color: "bg-green-500",  label: "Lab" },
-                { color: "bg-red-500",    label: "Test" },
-                { color: "bg-yellow-500", label: "Break" },
-                { color: "bg-indigo-500", label: "Split Session", icon: Layers },
-              ].map(item => (
-                <div key={item.label} className="flex items-center gap-2">
-                  <div className={`w-3 h-3 rounded-full ${item.color} shadow-lg`} />
-                  <span className="text-sm text-slate-600">{item.label}</span>
-                  {item.icon && <item.icon size={14} className="text-indigo-500" />}
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <GripVertical size={14} className="text-slate-400" />
-                Drag sessions to move them
-              </div>
-              <div className="flex items-center gap-2 text-sm text-slate-500 bg-white/50 px-3 py-1.5 rounded-full">
-                <Clock size={16} className="text-indigo-500" />
-                <span>{currentTime.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</span>
-              </div>
-            </div>
-          </div>
-        </motion.div>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, background: "linear-gradient(135deg, #6366f1, #4f46e5)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            Faculty Management
+          </h1>
+          <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8", fontWeight: 500 }}>{faculty.length} faculty members</p>
+        </div>
+        <button onClick={fetchData} style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 11, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+          Refresh
+        </button>
       </div>
 
-      {/* Session Modal */}
-      <SessionModal
-        isOpen={modalOpen}
-        session={modalSession}
-        day={modalDay}
-        slotNumber={modalSlot}
-        division={modalDivision}
-        mode={modalMode}
-        onClose={() => setModalOpen(false)}
-        onSave={handleModalSave}
-        facultyList={facultyList}
-        roomsList={roomsList}
-        subjectsList={subjectsList}
-      />
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: 4, padding: 4, background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 14, width: "fit-content", marginBottom: 24, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+        {[{ key: "faculty", label: "Faculty & Subjects", emoji: "👥" }, { key: "attendance", label: "Attendance", emoji: "📋" }].map(({ key, label, emoji }) => (
+          <button key={key} onClick={() => setActiveTab(key)} style={{
+            padding: "9px 20px", borderRadius: 10, border: "none", cursor: "pointer",
+            fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, transition: "all .15s",
+            background: activeTab === key ? "linear-gradient(135deg, #6366f1, #4f46e5)" : "transparent",
+            color: activeTab === key ? "#fff" : "#64748b",
+            boxShadow: activeTab === key ? "0 4px 12px #6366f133" : "none",
+          }}><span>{emoji}</span>{label}</button>
+        ))}
+      </div>
+
+      {/* ── Faculty Tab ── */}
+      {activeTab === "faculty" && (
+        <div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 20 }}>
+            <StatsCard label="Total Faculty" value={faculty.length} color="indigo" icon={<svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>} />
+            <StatsCard label="Subjects Assigned" value={faculty.filter(f => f.subjects?.length > 0).length} color="emerald" icon={<svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>} />
+            <StatsCard label="Unassigned" value={faculty.filter(f => !f.subjects?.length).length} color="amber" icon={<svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>} />
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 220, position: "relative" }}>
+              <svg style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search by name, ID, or email…" style={inputStyle} />
+            </div>
+            <div style={{ display: "flex", gap: 3, padding: 3, background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 10 }}>
+              {[{ key: "all", label: "All" }, { key: "assigned", label: "Assigned" }, { key: "unassigned", label: "Unassigned" }].map(({ key, label }) => (
+                <button key={key} onClick={() => setStatusFilter(key)} style={{
+                  padding: "6px 14px", borderRadius: 7, border: "none", cursor: "pointer",
+                  fontSize: 12, fontWeight: 600, transition: "all .15s",
+                  background: statusFilter === key ? "#6366f1" : "transparent",
+                  color: statusFilter === key ? "#fff" : "#64748b",
+                }}>{label}</button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 14 }}>
+            {filteredFaculty.length === 0 ? (
+              <div style={{ gridColumn: "1/-1", padding: "64px 0", textAlign: "center", color: "#94a3b8", background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0", fontSize: 13 }}>No faculty members found</div>
+            ) : filteredFaculty.map(f => <FacultyCard key={f.id} faculty={f} onEdit={setSelectedFaculty} />)}
+          </div>
+        </div>
+      )}
+
+      {/* ── Attendance Tab ── */}
+      {activeTab === "attendance" && (
+        <div>
+          <div style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 16, padding: "14px 18px", marginBottom: 18, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 2, background: "#f1f5f9", borderRadius: 9, padding: 3 }}>
+                <button onClick={() => handleDateChange(-1)} style={{ width: 30, height: 30, borderRadius: 7, border: "none", background: "none", cursor: "pointer", color: "#64748b", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>
+                <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} style={{ fontSize: 12, fontWeight: 600, color: "#1e293b", border: "none", background: "transparent", outline: "none", padding: "0 4px" }} />
+                <button onClick={() => handleDateChange(1)} style={{ width: 30, height: 30, borderRadius: 7, border: "none", background: "none", cursor: "pointer", color: "#64748b", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>›</button>
+              </div>
+              {selectedDate !== todayStr() && (
+                <button onClick={() => setSelectedDate(todayStr())} style={{ padding: "5px 11px", borderRadius: 7, border: "none", cursor: "pointer", background: "#eef2ff", color: "#6366f1", fontSize: 11, fontWeight: 600 }}>Today</button>
+              )}
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>Mark all:</span>
+              {["present", "absent", "leave"].map(s => {
+                const Icon = STATUS_ICONS[s];
+                return (
+                  <button key={s} onClick={() => handleMarkAll(s)} style={{ padding: "5px 11px", borderRadius: 8, border: "none", cursor: "pointer", background: STATUS[s].bg, color: STATUS[s].text, fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>
+                    <Icon size={13} color={STATUS[s].text} /> {STATUS[s].label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ marginLeft: "auto" }}>
+              <button onClick={handleSaveAttendance} disabled={attendanceSaving} style={{ ...btnPrimary, display: "flex", alignItems: "center", gap: 6, opacity: attendanceSaving ? 0.65 : 1 }}>
+                {attendanceSaving ? <><SpinIcon /> Saving…</> : <><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg> Save Attendance</>}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 18 }}>
+            <StatsCard label="Present" value={attendanceStats.present} color="emerald" icon={<PresentIcon size={20} color="#047857" />} />
+            <StatsCard label="Absent" value={attendanceStats.absent} color="rose" icon={<AbsentIcon size={20} color="#be123c" />} />
+            <StatsCard label="On Leave" value={attendanceStats.leave} color="amber" icon={<LeaveIcon size={20} color="#b45309" />} />
+            <StatsCard label="Unmarked" value={attendanceStats.unmarked} color="slate" icon={<svg width="20" height="20" fill="none" stroke="#64748b" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>} />
+          </div>
+
+          <div style={{ maxWidth: 280, marginBottom: 14, position: "relative" }}>
+            <svg style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <input value={attendanceSearch} onChange={e => setAttendanceSearch(e.target.value)} placeholder="Search faculty…" style={inputStyle} />
+          </div>
+
+          {attendanceLoading ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 0", background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0" }}>
+              <div style={{ width: 180, height: 180 }}><Lottie animationData={sideAnimation1} loop /></div>
+              <p style={{ margin: "8px 0 0", fontSize: 13, color: "#94a3b8", fontWeight: 500 }}>Loading attendance…</p>
+            </div>
+          ) : (
+            <div style={{ background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
+              {filteredAttendance.length === 0 ? (
+                <div style={{ padding: "64px 0", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No faculty members found</div>
+              ) : filteredAttendance.map(f => (
+                <AttendanceRow key={f.id} faculty={f} status={attendance[f.id] ?? "unmarked"} onStatusChange={handleStatusChange} />
+              ))}
+            </div>
+          )}
+
+          <p style={{ textAlign: "center", fontSize: 11, color: "#94a3b8", marginTop: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+            Attendance for {fmtDate(selectedDate)}
+          </p>
+        </div>
+      )}
+
+      <SubjectModal open={!!selectedFaculty} faculty={selectedFaculty} subjects={subjects} onClose={() => setSelectedFaculty(null)} onSave={handleSaveSubjects} saving={savingSubjects} />
     </div>
   );
-};
-
-export default AdminTimetableComponent;
+}
