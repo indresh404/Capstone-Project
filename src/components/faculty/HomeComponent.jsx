@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { Clock, CheckCircle, BookOpen, Users, Calendar, TrendingUp } from "lucide-react";
+const user = JSON.parse(localStorage.getItem("user")) || {};
 
 const HomeComponent = () => {
   const stats = [
@@ -56,7 +57,7 @@ const HomeComponent = () => {
     >
       {/* Welcome Banner */}
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-[2rem] p-8 text-white">
-        <h2 className="text-3xl font-black mb-2">Welcome back, Dr. Indresh Suresh! 👋</h2>
+        <h2 className="text-3xl font-black mb-2">Welcome back,  {user.role === "professor" ? "Dr. " : ""}{user.name}👋</h2>
         <p className="text-white/80 mb-4">Here's what's happening with your classes today.</p>
         <div className="flex gap-4">
           <div className="bg-white/20 backdrop-blur-sm rounded-xl px-4 py-2">

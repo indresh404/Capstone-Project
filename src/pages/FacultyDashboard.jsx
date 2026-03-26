@@ -20,12 +20,16 @@ const FacultyDashboard = () => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Fake user data
-  const userData = {
-    name: "Dr. Indresh Suresh",
-    role: "Professor",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Indresh&backgroundColor=b6e3f4",
-    notifications: 3
-  };
+ const user = JSON.parse(localStorage.getItem("user"));
+
+const userData = {
+  name: user?.name || "User",
+  role: user?.role || "Faculty",
+  avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || "User"}`,
+  notifications: 3
+};
+
+  
 
   const menuItems = [
     { key: "home", label: "Home", icon: <LayoutDashboard size={22} /> },
@@ -195,7 +199,7 @@ const FacultyDashboard = () => {
             <h1 className="text-4xl font-black text-slate-900 tracking-tight">
               Welcome to <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">Schedula</span>
             </h1>
-            <p className="text-slate-400 font-medium mt-1">Faculty : Indresh</p>
+            <p className="text-slate-400 font-medium mt-1">Faculty : {user.name || "User"}</p>
           </div>
 
           <div className="flex items-center gap-6">
