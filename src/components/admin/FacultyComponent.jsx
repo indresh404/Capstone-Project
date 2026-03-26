@@ -183,19 +183,12 @@ const StatsCard = memo(({ label, value, color, icon }) => {
 
 const LoadingScreen = () => (
   <div style={{
-    position: "fixed", inset: 0, background: "rgba(255,255,255,0.85)",
-    backdropFilter: "blur(6px)", zIndex: 50,
     display: "flex", alignItems: "center", justifyContent: "center",
+    minHeight: 400, background: "#f8fafc", borderRadius: 16,
   }}>
     <div style={{ position: "relative", textAlign: "center" }}>
-      <div style={{ width: 200, height: 200 }}>
+      <div style={{ width: 300, height: 300 }}>
         <Lottie animationData={mainAnimation} loop />
-      </div>
-      <div style={{ position: "absolute", top: -24, left: -24, width: 64, height: 64, opacity: 0.45 }}>
-        <Lottie animationData={sideAnimation1} loop />
-      </div>
-      <div style={{ position: "absolute", bottom: -24, right: -24, width: 64, height: 64, opacity: 0.45 }}>
-        <Lottie animationData={sideAnimation2} loop />
       </div>
       <p style={{ marginTop: 8, fontSize: 13, color: "#64748b", fontWeight: 500 }}>Loading faculty data…</p>
     </div>
@@ -204,7 +197,7 @@ const LoadingScreen = () => (
 
 const ErrorScreen = ({ error, onRetry }) => (
   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 400, padding: 32 }}>
-    <div style={{ width: 160, height: 160 }}>
+    <div style={{ width: 300, height: 300 }}>
       <Lottie animationData={errorAnimation} loop />
     </div>
     <p style={{ fontWeight: 600, color: "#1e293b", marginBottom: 4 }}>Failed to load data</p>
@@ -885,7 +878,7 @@ export default function FacultyComponent() {
       {/* Modal */}
       <SubjectModal
         open={!!selectedFaculty}
-        faculty={selectedFaculty}
+        faculty={selectedFaculty}LoadingScreen 
         subjects={subjects}
         onClose={() => setSelectedFaculty(null)}
         onSave={handleSaveSubjects}
