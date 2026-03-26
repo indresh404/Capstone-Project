@@ -166,30 +166,64 @@ console.log('Max Classes:', maxClasses);
       </div>
 
       {/* Navigation Tabs */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-1.5 shadow-sm">
-        <div className="flex gap-1">
-          {[
-            { id: "overview", label: "Overview", icon: <Activity size={16} />, color: "indigo" },
-            { id: "subjects", label: "Subjects", icon: <Book size={16} />, color: "emerald" },
-            { id: "faculty", label: "Faculty", icon: <Users size={16} />, color: "purple" },
-            { id: "departments", label: "Departments", icon: <Building size={16} />, color: "orange" }
-          ].map(v => (
-            <button 
-              key={v.id} 
-              onClick={() => setView(v.id)}
-              className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${
-                view === v.id 
-                  ? `bg-${v.color}-600 text-white shadow-lg transform scale-[1.02]` 
-                  : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-              }`}
+      <div className="bg-white border border-slate-200 rounded-2xl p-2 shadow-sm">
+  <div className="flex gap-3">
+    {[
+      { id: "overview", label: "Overview", icon: <Activity size={18} />, color: "indigo", gradient: "from-indigo-500 to-indigo-600" },
+      { id: "subjects", label: "Subjects", icon: <Book size={18} />, color: "emerald", gradient: "from-emerald-500 to-emerald-600" },
+      { id: "faculty", label: "Faculty", icon: <Users size={18} />, color: "purple", gradient: "from-purple-500 to-purple-600" },
+      { id: "departments", label: "Departments", icon: <Building size={18} />, color: "orange", gradient: "from-orange-500 to-orange-600" }
+    ].map(v => (
+      <motion.button
+        key={v.id}
+        onClick={() => setView(v.id)}
+        whileHover={{ y: -2 }}
+        whileTap={{ scale: 0.98 }}
+        className={`relative flex-1 py-5 px-4 rounded-xl text-base font-bold transition-all duration-300 flex items-center justify-center gap-3 ${
+          view === v.id 
+            ? `bg-gradient-to-r ${v.gradient} text-white shadow-lg` 
+            : "text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-transparent hover:border-slate-200"
+        }`}
+      >
+        {/* Animated background for active state */}
+        {view === v.id && (
+          <motion.div
+            layoutId="activeTab"
+            className="absolute inset-0 rounded-xl bg-gradient-to-r"
+            style={{ background: `linear-gradient(to right, var(--tw-gradient-stops))` }}
+            transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
+          />
+        )}
+        
+        {/* Content */}
+        <div className="relative z-10 flex items-center gap-3">
+          <div className={view === v.id ? "text-white" : `text-${v.color}-500`}>
+            {v.icon}
+          </div>
+          <span className="font-bold">{v.label}</span>
+          {view === v.id && (
+            <motion.div
+              initial={{ x: -5, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.1 }}
             >
-              {v.icon}
-              {v.label}
-              {view === v.id && <ChevronRight size={14} className="ml-1" />}
-            </button>
-          ))}
+              <ChevronRight size={16} />
+            </motion.div>
+          )}
         </div>
-      </div>
+        
+        {/* Hover effect */}
+        {view !== v.id && (
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-r from-slate-100 to-transparent opacity-0 rounded-xl"
+            whileHover={{ opacity: 0.5 }}
+            transition={{ duration: 0.2 }}
+          />
+        )}
+      </motion.button>
+    ))}
+  </div>
+</div>
 
       {/* Overview View */}
       {view === "overview" && summary && (
