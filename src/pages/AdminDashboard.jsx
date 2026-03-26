@@ -4,6 +4,7 @@ import {
   LayoutDashboard, Users, BookMarked,
   CalendarRange, BarChart2, Settings, Bell,
 } from "lucide-react";
+import { createPortal } from "react-dom";
 
 // Import admin components
 import HomeComponent from "../components/admin/HomeComponent";
@@ -18,6 +19,8 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("home");
   const [showNotifications, setShowNotifications] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [hoveredItem, setHoveredItem] = useState(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
 
   const adminData = {
     name: "Admin Coordinator",
@@ -70,22 +73,51 @@ const AdminDashboard = () => {
     { msg: "Timetable export completed", time: "2 hr ago", type: "success" },
   ];
 
+  const handleMouseEnter = (e, label) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setTooltipPosition({
+      top: rect.top + rect.height / 2,
+      left: rect.right + 16,
+    });
+    setHoveredItem(label);
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredItem(null);
+  };
+
   return (
     <div className="h-screen flex bg-gradient-to-r from-[#EEF0FF] via-[#F8F4FF] to-[#FFFFFF] text-slate-700 overflow-hidden font-sans p-5">
-
-      {/* SIDEBAR */}
       <motion.aside
         initial={false}
         animate={isExpanded ? "expanded" : "collapsed"}
         variants={sidebarVariants}
         className="bg-gradient-to-b -left-5 from-indigo-700 to-purple-700 shadow-2xl rounded-r-[3rem] flex flex-col items-center py-10 gap-8 relative overflow-visible z-50"
+        style={{
+          height: "100%",
+          overflowY: "auto",
+          overflowX: "hidden",
+        }}
       >
+        {/* Hide scrollbar */}
+        <style>
+          {`
+            .bg-gradient-to-b.from-indigo-700.to-purple-700 {
+              scrollbar-width: none;
+              -ms-overflow-style: none;
+            }
+            .bg-gradient-to-b.from-indigo-700.to-purple-700::-webkit-scrollbar {
+              display: none;
+            }
+          `}
+        </style>
+        
         <div className="absolute inset-0 bg-white/5 backdrop-blur-[1px] pointer-events-none rounded-r-[3rem]" />
 
         {/* Logo Toggle */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="relative z-10 w-14 h-14 bg-black/50 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/10 shadow-inner hover:scale-110 active:scale-95 transition-transform cursor-pointer p-2"
+          className="relative z-10 w-14 h-14 bg-black/50 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/10 shadow-inner hover:scale-110 active:scale-95 transition-transform cursor-pointer p-2 flex-shrink-0"
         >
           <motion.img
             src={LogoPng}
@@ -103,7 +135,9 @@ const AdminDashboard = () => {
             <button
               key={item.key}
               onClick={() => setActiveTab(item.key)}
-              className={`p-3.5 rounded-2xl transition-all duration-500 relative group flex items-center
+              onMouseEnter={(e) => !isExpanded && handleMouseEnter(e, item.label)}
+              onMouseLeave={handleMouseLeave}
+              className={`p-3.5 rounded-2xl transition-all duration-500 relative group flex items-center w-full
                 ${isExpanded ? "justify-start gap-4 px-5" : "justify-center px-4"}
                 ${activeTab === item.key
                   ? "bg-white text-[#7C3AED] shadow-xl"
@@ -134,18 +168,12 @@ const AdminDashboard = () => {
                   </motion.span>
                 )}
               </AnimatePresence>
-
-              {!isExpanded && (
-                <span className="absolute left-full ml-4 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-lg border border-white/20 text-black text-[13px] px-4 py-2.5 rounded-xl pointer-events-none uppercase tracking-widest font-bold whitespace-nowrap origin-left scale-x-0 opacity-0 transition-all duration-300 ease-out group-hover:scale-x-100 group-hover:opacity-100 shadow-xl">
-                  {item.label}
-                </span>
-              )}
             </button>
           ))}
         </nav>
 
         {/* Bottom Profile */}
-        <div className="relative z-10 px-4 w-full">
+        <div className="relative z-10 px-4 w-full flex-shrink-0">
           <div className={`flex items-center gap-3 transition-all duration-500 ${isExpanded ? "bg-white/10 p-2 rounded-2xl" : "justify-center"}`}>
             <div className="w-10 h-10 rounded-xl bg-white/20 p-0.5 border border-white/30 overflow-hidden shrink-0">
               <img src={adminData.avatar} alt="avatar" className="rounded-lg bg-violet-100 w-full h-full object-cover" />
@@ -164,6 +192,27 @@ const AdminDashboard = () => {
           </div>
         </div>
       </motion.aside>
+
+      {/* Tooltip Portal */}
+      {!isExpanded && hoveredItem && createPortal(
+        <div
+          className="fixed z-[9999] pointer-events-none"
+          style={{
+            top: tooltipPosition.top,
+            left: tooltipPosition.left,
+            transform: 'translateY(-50%)',
+          }}
+        >
+          <div className="bg-white/10 backdrop-blur-lg border border-white/20 text-black text-[13px] px-4 py-2.5 rounded-xl uppercase tracking-widest font-bold whitespace-nowrap shadow-xl">
+            {hoveredItem}
+          </div>
+          <div 
+            className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-white/10 rotate-45 border-l border-t border-white/20"
+            style={{ left: '-4px' }}
+          />
+        </div>,
+        document.body
+      )}
 
       {/* MAIN CONTENT */}
       <main className="flex-1 flex flex-col px-12 pt-6 overflow-hidden">
@@ -248,6 +297,22 @@ const AdminDashboard = () => {
         </div>
       </main>
 
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #c4b5fd;
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #a78bfa;
+        }
+      `}</style>
     </div>
   );
 };
