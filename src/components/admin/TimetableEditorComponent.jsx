@@ -1,757 +1,1483 @@
-import React, { useState, useEffect, useCallback, useMemo, memo, useRef } from "react";
-import LottieComponent from "lottie-react";
+import React, {
+  useState, useEffect, useCallback, useMemo, memo, useRef,
+} from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Clock, MapPin, GraduationCap, Coffee, Layers, Sun, Moon,
+  Plus, Save, Zap, AlertTriangle, CheckCircle, Edit3, Trash2,
+  ChevronDown, GripVertical, RefreshCw, Shield, X, Sparkles,
+} from "lucide-react";
 
+import LottieComponent from "lottie-react";
 const Lottie = LottieComponent.default ?? LottieComponent;
+
 import mainAnimation from "../../assets/tt_loading_main.json";
 import sideAnimation1 from "../../assets/tt_loading1.json";
 import sideAnimation2 from "../../assets/tt_loading2.json";
 import errorAnimation from "../../assets/tt_error.json";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ─────────────────────────── Constants ───────────────────────────────────────
 
-const todayStr = () => new Date().toISOString().split("T")[0];
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
-const fmtDate = (d) =>
-  new Date(d + "T00:00:00").toLocaleDateString("en-IN", {
-    weekday: "short", day: "numeric", month: "short", year: "numeric",
-  });
-
-const getInitials = (name = "") =>
-  name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
-
-const AVATAR_GRADIENTS = [
-  ["#6366f1", "#818cf8"], ["#10b981", "#34d399"], ["#f43f5e", "#fb7185"],
-  ["#f59e0b", "#fbbf24"], ["#06b6d4", "#38bdf8"], ["#8b5cf6", "#a78bfa"],
-  ["#ec4899", "#f472b6"], ["#14b8a6", "#2dd4bf"],
-];
-const getGradient = (id) => AVATAR_GRADIENTS[id % AVATAR_GRADIENTS.length];
-
-// ── Status Configuration ─────────────────────────────────────────────────────
-
-const STATUS = {
-  present: {
-    label: "Present", short: "P",
-    bg: "#ecfdf5", text: "#059669", border: "#a7f3d0",
-    activeBg: "#059669", activeText: "#fff", dot: "#10b981",
-  },
-  absent: {
-    label: "Absent", short: "A",
-    bg: "#fff1f2", text: "#e11d48", border: "#fecdd3",
-    activeBg: "#e11d48", activeText: "#fff", dot: "#f43f5e",
-  },
-  leave: {
-    label: "Leave", short: "L",
-    bg: "#fffbeb", text: "#d97706", border: "#fde68a",
-    activeBg: "#d97706", activeText: "#fff", dot: "#f59e0b",
-  },
-  unmarked: {
-    label: "Unmarked", short: "?",
-    bg: "#f8fafc", text: "#94a3b8", border: "#e2e8f0",
-    activeBg: "#94a3b8", activeText: "#fff", dot: "#cbd5e1",
-  },
+const TIME_SLOTS = {
+  1: { start: "09:15", end: "10:15", name: "Slot 1" },
+  2: { start: "10:15", end: "11:15", name: "Slot 2" },
+  3: { start: "11:15", end: "12:15", name: "Slot 3" },
+  4: { start: "12:15", end: "12:45", name: "Break",  isBreak: true },
+  5: { start: "12:45", end: "13:45", name: "Slot 5" },
+  6: { start: "13:45", end: "14:45", name: "Slot 6" },
+  7: { start: "14:45", end: "15:45", name: "Slot 7" },
+  8: { start: "15:45", end: "16:45", name: "Slot 8" },
 };
 
-const SUBJECT_STYLES = {
-  theory: { bg: "#eff6ff", text: "#1d4ed8", border: "#bfdbfe", dot: "#3b82f6" },
-  lab:    { bg: "#f0fdf4", text: "#15803d", border: "#bbf7d0", dot: "#22c55e" },
-  test:   { bg: "#fff1f2", text: "#be123c", border: "#fecdd3", dot: "#f43f5e" },
+const ALL_SLOTS     = [1, 2, 3, 4, 5, 6, 7, 8];
+const SESSION_SLOTS = [1, 2, 3, 5, 6, 7, 8];
+const BREAK_SLOT    = 4;
+
+// ── Slot dimensions ──────────────────────────────────────────────────────────
+const SLOT_H  = 148;  // px — session card height (increased from 96)
+const BREAK_H = 125;   // px — break card height
+
+// ─────────────────────────── Type Styles ─────────────────────────────────────
+
+const TYPE_CFG = {
+  theory: { border: "#3b82f6", bg: "linear-gradient(135deg,#eff6ff 0%,#e0e7ff 100%)", text: "#1d4ed8", badge: "#dbeafe", badgeText: "#1e40af" },
+  lab:    { border: "#22c55e", bg: "linear-gradient(135deg,#f0fdf4 0%,#dcfce7 100%)", text: "#15803d", badge: "#dcfce7", badgeText: "#166534" },
+  test:   { border: "#ef4444", bg: "linear-gradient(135deg,#fef2f2 0%,#fee2e2 100%)", text: "#dc2626", badge: "#fee2e2", badgeText: "#991b1b" },
+  break:  { border: "#f59e0b", bg: "linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%)", text: "#b45309", badge: "#fef3c7", badgeText: "#92400e" },
+  _:      { border: "#94a3b8", bg: "linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%)", text: "#475569", badge: "#f1f5f9", badgeText: "#334155" },
 };
+
+const tc = (type) => TYPE_CFG[type?.toLowerCase()] ?? TYPE_CFG["_"];
+
+// ─────────────────────────── Auth ────────────────────────────────────────────
 
 const authHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem("token")}`,
   "Content-Type": "application/json",
 });
 
-async function api(url, opts = {}) {
-  const r = await fetch(`http://localhost:5000${url}`, {
-    ...opts, headers: { ...authHeaders(), ...(opts.headers ?? {}) },
-  });
-  const data = await r.json();
-  if (!r.ok) throw new Error(data.message ?? `HTTP ${r.status}`);
-  return data;
+// ─────────────────────────── Clash Detection ─────────────────────────────────
+
+function detectClashes(tt) {
+  const clashes = [];
+  for (const day of DAYS) {
+    for (let slot = 1; slot <= 8; slot++) {
+      if (slot === BREAK_SLOT) continue;
+      const all = [
+        ...(tt[day]?.A ?? []).filter(s => s.slot === slot),
+        ...(tt[day]?.B ?? []).filter(s => s.slot === slot),
+      ];
+      const rooms = all.map(s => s.room).filter(Boolean);
+      rooms.forEach((r, i) => {
+        if (rooms.indexOf(r) !== i) {
+          const k = `room-${day}-${slot}-${r}`;
+          if (!clashes.find(c => c.key === k))
+            clashes.push({ key: k, day, slot, type: "room", message: `Room ${r} double-booked · ${day} Slot ${slot}` });
+        }
+      });
+      const facs = all.map(s => s.faculty).filter(f => f && f !== "NULL" && f !== "-");
+      facs.forEach((f, i) => {
+        if (facs.indexOf(f) !== i) {
+          const k = `fac-${day}-${slot}-${f}`;
+          if (!clashes.find(c => c.key === k))
+            clashes.push({ key: k, day, slot, type: "faculty", message: `${f} double-booked · ${day} Slot ${slot}` });
+        }
+      });
+    }
+  }
+  return clashes;
 }
 
-// ── Icons ─────────────────────────────────────────────────────────────────────
+function roomConflict(tt, room, day, slot, excludeId) {
+  if (!room || !tt) return null;
+  for (const div of ["A", "B"])
+    for (const s of (tt[day]?.[div] ?? []).filter(x => x.slot === slot)) {
+      if (excludeId && String(s.id) === String(excludeId)) continue;
+      if (s.room === room) return `Room "${room}" already booked (Div ${div}: ${s.subject_name ?? s.subject})`;
+    }
+  return null;
+}
 
-const PresentIcon = ({ size = 16, color }) => (
-  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.8}>
-    <polyline points="20 6 9 17 4 12" />
-  </svg>
-);
-const AbsentIcon = ({ size = 16, color }) => (
-  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.8}>
-    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-  </svg>
-);
-const LeaveIcon = ({ size = 16, color }) => (
-  <svg width={size} height={size} fill="none" stroke={color} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2}>
-    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-    <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" />
-    <line x1="3" y1="10" x2="21" y2="10" />
-  </svg>
-);
-const SpinIcon = () => (
-  <svg style={{ animation: "spin 0.8s linear infinite" }} width="14" height="14" viewBox="0 0 24 24">
-    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity={0.25} />
-    <path fill="currentColor" opacity={0.75} d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-  </svg>
-);
+function facConflict(tt, fac, day, slot, excludeId) {
+  if (!fac || fac === "-" || !tt) return null;
+  for (const div of ["A", "B"])
+    for (const s of (tt[day]?.[div] ?? []).filter(x => x.slot === slot)) {
+      if (excludeId && String(s.id) === String(excludeId)) continue;
+      if (s.faculty === fac) return `${fac} already assigned (Div ${div}: ${s.subject_name ?? s.subject})`;
+    }
+  return null;
+}
 
-const STATUS_ICONS = { present: PresentIcon, absent: AbsentIcon, leave: LeaveIcon };
+// ─────────────────────────── Stats ───────────────────────────────────────────
 
-// ── Shared styles ─────────────────────────────────────────────────────────────
+function computeStats(tt, division) {
+  let theory = 0, lab = 0, test = 0;
+  for (const day of DAYS)
+    for (const s of (tt?.[day]?.[division] ?? []))
+      s.type === "theory" ? theory++ : s.type === "lab" ? lab++ : s.type === "test" ? test++ : null;
+  return { theory, lab, test, total: theory + lab + test };
+}
 
-const btnPrimary = {
-  padding: "10px 22px", borderRadius: 12, border: "none", cursor: "pointer",
-  background: "linear-gradient(135deg, #6366f1, #4f46e5)",
-  color: "#fff", fontSize: 13, fontWeight: 600,
-  boxShadow: "0 4px 14px #6366f133", transition: "opacity .15s",
-};
+// ─────────────────────────── Toast ───────────────────────────────────────────
 
-// ── Full-screen Loading ───────────────────────────────────────────────────────
-
-const LoadingScreen = ({ sideIdx, showSide }) => (
-  <div style={{
-    position: "fixed", inset: 0, zIndex: 9999, background: "#fff",
-    display: "flex", flexDirection: "column",
-    alignItems: "center", justifyContent: "center",
-    fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
-  }}>
-    <div style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 48 }}>
-      {/* Main animation */}
-      <div style={{ width: 340, height: 340 }}>
-        <Lottie animationData={mainAnimation} loop style={{ width: "100%", height: "100%" }} />
-      </div>
-      {/* Cycling side animation */}
-      <div style={{ width: 220, height: 220, position: "relative" }}>
-        <div style={{
-          position: "absolute", inset: 0,
-          opacity: showSide ? 1 : 0,
-          transition: "opacity 0.35s ease",
-        }}>
-          <Lottie
-            animationData={sideIdx === 0 ? sideAnimation1 : sideAnimation2}
-            loop
-            style={{ width: "100%", height: "100%" }}
-          />
-        </div>
-      </div>
-    </div>
-    <div style={{ marginTop: 32, textAlign: "center" }}>
-      <h2 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: "#334155" }}>
-        Loading Faculty Panel
-      </h2>
-      <p style={{ margin: "8px 0 0", fontSize: 14, color: "#94a3b8" }}>
-        Fetching faculty and subject data…
-      </p>
-    </div>
-  </div>
-);
-
-// ── Error Screen ──────────────────────────────────────────────────────────────
-
-const ErrorScreen = ({ error, onRetry }) => (
-  <div style={{
-    position: "fixed", inset: 0, zIndex: 9999, background: "#fff",
-    display: "flex", flexDirection: "column",
-    alignItems: "center", justifyContent: "center",
-    fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
-  }}>
-    <div style={{ width: 260, height: 260 }}>
-      <Lottie animationData={errorAnimation} loop style={{ width: "100%", height: "100%" }} />
-    </div>
-    <h2 style={{ margin: "16px 0 8px", fontSize: 24, fontWeight: 800, color: "#1e293b" }}>
-      Failed to load data
-    </h2>
-    <p style={{ fontSize: 14, color: "#94a3b8", marginBottom: 28, textAlign: "center", maxWidth: 380 }}>{error}</p>
-    <button onClick={onRetry} style={btnPrimary}>Try Again</button>
-  </div>
-);
-
-// ── Memoized Sub-components ───────────────────────────────────────────────────
-
-const SubjectBadge = memo(({ subject }) => {
-  const style = SUBJECT_STYLES[subject.type?.toLowerCase()] ?? SUBJECT_STYLES.theory;
-  return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", gap: 4,
-      padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 600,
-      background: style.bg, color: style.text, border: `1px solid ${style.border}`,
-    }}>
-      <span style={{ width: 5, height: 5, borderRadius: "50%", background: style.dot, flexShrink: 0 }} />
-      {subject.code ?? subject.name}
-    </span>
-  );
-});
-
-const Avatar = memo(({ name, id, size = 48 }) => {
-  const [from, to] = getGradient(id);
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: size * 0.25,
-      background: `linear-gradient(135deg, ${from}, ${to})`,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      color: "#fff", fontWeight: 700, fontSize: size * 0.33, flexShrink: 0,
-      boxShadow: `0 4px 12px ${from}44`,
-    }}>
-      {getInitials(name)}
-    </div>
-  );
-});
-
-const StatsCard = memo(({ label, value, color, icon }) => {
-  const palette = {
-    indigo:  { bg: "#eef2ff", text: "#4338ca", accent: "#6366f1" },
-    emerald: { bg: "#ecfdf5", text: "#047857", accent: "#10b981" },
-    rose:    { bg: "#fff1f2", text: "#be123c", accent: "#f43f5e" },
-    amber:   { bg: "#fffbeb", text: "#b45309", accent: "#f59e0b" },
-    slate:   { bg: "#f1f5f9", text: "#475569", accent: "#64748b" },
-  };
-  const p = palette[color] ?? palette.indigo;
-  return (
-    <div style={{ background: p.bg, borderRadius: 16, padding: "18px 20px", border: `1.5px solid ${p.accent}22`, position: "relative", overflow: "hidden" }}>
-      <div style={{ position: "absolute", top: -12, right: -12, width: 64, height: 64, borderRadius: "50%", background: `${p.accent}18` }} />
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: p.text, lineHeight: 1 }}>{value}</div>
-          <div style={{ fontSize: 12, color: p.text, opacity: 0.75, marginTop: 4, fontWeight: 500 }}>{label}</div>
-        </div>
-        <div style={{ color: p.accent, opacity: 0.7 }}>{icon}</div>
-      </div>
-    </div>
-  );
-});
-
-const StatusToggle = memo(({ currentStatus, onStatusChange, facultyId }) => (
-  <div style={{ display: "flex", gap: 5, padding: 4, background: "#f1f5f9", borderRadius: 14 }}>
-    {["present", "absent", "leave"].map(status => {
-      const cfg = STATUS[status];
-      const active = currentStatus === status;
-      const Icon = STATUS_ICONS[status];
-      const iconColor = active ? "#fff" : cfg.text;
-      return (
-        <button
-          key={status}
-          title={cfg.label}
-          onClick={() => onStatusChange(facultyId, status)}
-          style={{
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-            padding: "6px 12px", borderRadius: 9, border: "none", cursor: "pointer",
-            background: active ? cfg.activeBg : cfg.bg, color: iconColor,
-            transform: active ? "scale(1.05)" : "scale(1)", transition: "all .15s",
-            boxShadow: active ? `0 2px 8px ${cfg.activeBg}66` : "none",
-            fontWeight: 600, fontSize: 11,
-          }}
+const Toast = memo(({ toasts, onRemove }) => (
+  <div className="fixed top-4 right-4 z-[200] space-y-2 pointer-events-none">
+    <AnimatePresence>
+      {toasts.map(t => (
+        <motion.div key={t.id}
+          initial={{ opacity: 0, x: 60, scale: 0.9 }}
+          animate={{ opacity: 1, x: 0,  scale: 1   }}
+          exit  ={{ opacity: 0, x: 60, scale: 0.9 }}
+          className={`flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-2xl border text-sm font-semibold pointer-events-auto max-w-sm ${
+            t.type === "error"   ? "bg-red-50   border-red-200   text-red-700"   :
+            t.type === "warning" ? "bg-amber-50 border-amber-200 text-amber-700" :
+                                   "bg-emerald-50 border-emerald-200 text-emerald-700"
+          }`}
         >
-          <Icon size={14} color={iconColor} />
-          <span style={{ color: iconColor }}>{cfg.label}</span>
-        </button>
-      );
-    })}
+          {t.type === "error" || t.type === "warning"
+            ? <AlertTriangle size={15} className="shrink-0" />
+            : <CheckCircle size={15} className="shrink-0" />}
+          <span className="flex-1">{t.message}</span>
+          <button onClick={() => onRemove(t.id)} className="hover:opacity-60 ml-1"><X size={13} /></button>
+        </motion.div>
+      ))}
+    </AnimatePresence>
   </div>
 ));
 
-// ── Subject Modal ─────────────────────────────────────────────────────────────
+// ─────────────────────────── Break Card ──────────────────────────────────────
 
-const SubjectModal = ({ open, faculty, subjects, onClose, onSave, saving }) => {
-  const [selected, setSelected] = useState([]);
-  const [filter, setFilter] = useState("all");
+const BreakCard = () => (
+  <div
+    style={{ height: BREAK_H }}
+    className="
+      rounded-2xl overflow-hidden
+      bg-white border border-yellow-200
+      shadow-sm hover:shadow-md
+      transition-all duration-200 ease-out
+      flex flex-col shrink-0
+      w-full
+    "
+  >
+    {/* HEADER */}
+    <div className="
+      flex items-center justify-between
+      px-3 py-1.5
+      text-xs font-semibold text-slate-500
+      bg-yellow-50 border-b
+    ">
+      <span className="flex items-center gap-1">
+        <Clock size={12} className="text-slate-400" />
+        {TIME_SLOTS[BREAK_SLOT].start} – {TIME_SLOTS[BREAK_SLOT].end}
+      </span>
 
-  useEffect(() => {
-    if (open && faculty) { setSelected(faculty.subjects?.map(s => s.id) ?? []); setFilter("all"); }
-  }, [open, faculty]);
+      <span className="
+        flex items-center gap-1
+        text-[10px] font-bold
+        text-yellow-700 bg-yellow-100
+        px-2 py-0.5 rounded-full
+      ">
+        <Coffee size={10} /> BREAK
+      </span>
+    </div>
 
-  if (!open || !faculty) return null;
-  const [from, to] = getGradient(faculty.id);
-  const filtered = filter === "all" ? subjects : subjects.filter(s => s.type === filter);
+    {/* BODY */}
+    <div className="
+      flex-1 flex items-center justify-center
+      bg-gradient-to-br from-yellow-50 via-amber-50 to-yellow-50
+      relative group
+    ">
+      {/* subtle hover glow */}
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition duration-200 bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+
+      <div className="relative flex flex-col items-center gap-1.5">
+        <div className="
+          p-2 rounded-xl
+          bg-yellow-100
+          group-hover:bg-yellow-200
+          transition
+        ">
+          <Coffee size={18} className="text-yellow-600" />
+        </div>
+
+        <span className="text-sm font-semibold text-yellow-700 tracking-wide">
+          Lunch Break
+        </span>
+
+        <span className="text-[10px] text-yellow-500 font-medium">
+          30 min
+        </span>
+      </div>
+    </div>
+  </div>
+);
+// ─────────────────────────── Session Card ────────────────────────────────────
+
+const SessionCard = memo(({
+  session, day, slotNumber, division, isCurrent, hasClash,
+  onEdit, onDelete, onDragStart, onDragOver, onDrop, isDragging, dragTarget,
+}) => {
+  const cfg = tc(session.type);
+  const isDropTarget = dragTarget?.day === day && dragTarget?.slotNumber === slotNumber && dragTarget?.division === division;
 
   return (
-    <div onClick={onClose} style={{
-      position: "fixed", inset: 0, zIndex: 50,
-      background: "rgba(15,23,42,0.55)", backdropFilter: "blur(4px)",
-      display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
-    }}>
-      <div onClick={e => e.stopPropagation()} style={{
-        background: "#fff", borderRadius: 20, width: "100%", maxWidth: 440,
-        overflow: "hidden", boxShadow: "0 24px 64px rgba(15,23,42,0.2)",
-      }}>
-        <div style={{ background: `linear-gradient(135deg, ${from}, ${to})`, padding: "20px 24px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{
-                width: 48, height: 48, borderRadius: 12, background: "rgba(255,255,255,0.2)",
-                border: "2px solid rgba(255,255,255,0.35)", display: "flex", alignItems: "center",
-                justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 18,
-              }}>{getInitials(faculty.name)}</div>
-              <div>
-                <div style={{ fontWeight: 700, color: "#fff", fontSize: 15 }}>{faculty.name}</div>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.75)" }}>{selected.length} subjects selected</div>
-              </div>
+    <div
+      draggable
+      onDragStart={e => {
+        if (e.target.closest("button")) { e.preventDefault(); return; }
+        e.dataTransfer.effectAllowed = "move";
+        onDragStart({ session, day, slotNumber, division });
+      }}
+      onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; onDragOver({ day, slotNumber, division }); }}
+      onDrop={e => { e.preventDefault(); onDrop({ day, slotNumber, division }); }}
+      style={{
+        height: SLOT_H,
+        borderLeft: `4px solid ${cfg.border}`,
+        background: isDropTarget ? "#eef2ff" : cfg.bg,
+        opacity: isDragging ? 0.35 : 1,
+        outline: isDropTarget
+          ? "2.5px solid #818cf8"
+          : isCurrent
+            ? "2.5px solid #6366f1"
+            : hasClash
+              ? "2.5px solid #f87171"
+              : "none",
+        outlineOffset: 2,
+        boxShadow: isCurrent
+          ? "0 0 0 3px rgba(99,102,241,0.15), 0 4px 16px rgba(0,0,0,0.10)"
+          : "0 2px 8px rgba(0,0,0,0.06)",
+      }}
+      className="relative rounded-xl overflow-hidden cursor-grab active:cursor-grabbing shrink-0 select-none transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+    >
+      {/* ── Header strip ── */}
+      <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <GripVertical size={13} className="text-slate-300 shrink-0" />
+          <span className="text-xs font-semibold text-slate-400 tabular-nums">
+            {TIME_SLOTS[slotNumber].start} – {TIME_SLOTS[slotNumber].end}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {hasClash && (
+            <span className="flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-red-100 text-red-600">
+              <AlertTriangle size={9} />CLASH
+            </span>
+          )}
+          <span
+            style={{ background: cfg.badge, color: cfg.badgeText }}
+            className="text-[11px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide"
+          >
+            {session.type}
+          </span>
+        </div>
+      </div>
+
+      {/* ── Subject ── */}
+      <div className="px-3 pb-1.5">
+        {session.subject_code?.toString().trim() && (
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 leading-none mb-0.5">
+            {session.subject_code}
+          </div>
+        )}
+        <div style={{ color: cfg.text }} className="text-sm font-bold leading-snug line-clamp-2">
+          {session.subject_name ?? session.subject ?? "FREE"}
+        </div>
+      </div>
+
+      {/* ── Details ── */}
+      <div className="absolute bottom-2.5 left-3 right-11 flex flex-col gap-1.5">
+        {session.batch && session.batch !== "NULL" && session.batch !== "-" && (
+          <span className="w-max text-[10px] font-black px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-600">
+            Batch {session.batch}
+          </span>
+        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {session.faculty && session.faculty !== "NULL" && session.faculty !== "-" && (
+            <div className="flex items-center gap-1 text-xs text-slate-600 font-semibold bg-white/80 px-2 py-0.5 rounded-lg shadow-sm border border-white/60">
+              <GraduationCap size={12} className="text-indigo-400 shrink-0" />
+              <span className="truncate max-w-[80px]">{session.faculty}</span>
             </div>
-            <button onClick={onClose} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: 22, lineHeight: 1 }}>×</button>
-          </div>
+          )}
+          {session.room && (
+            <div className="flex items-center gap-1 text-xs text-slate-600 font-semibold bg-white/80 px-2 py-0.5 rounded-lg shadow-sm border border-white/60">
+              <MapPin size={12} className="text-rose-400 shrink-0" />
+              <span className="truncate max-w-[52px]">{session.room}</span>
+            </div>
+          )}
         </div>
+      </div>
 
-        <div style={{ padding: "12px 16px", borderBottom: "1px solid #f1f5f9" }}>
-          <div style={{ display: "flex", gap: 4, background: "#f1f5f9", padding: 4, borderRadius: 10 }}>
-            {["all", "theory", "lab", "test"].map(t => (
-              <button key={t} onClick={() => setFilter(t)} style={{
-                flex: 1, padding: "6px 0", borderRadius: 7, border: "none", cursor: "pointer",
-                fontSize: 11, fontWeight: 600, textTransform: "capitalize", transition: "all .15s",
-                background: filter === t ? "#fff" : "transparent",
-                color: filter === t ? "#1e293b" : "#94a3b8",
-                boxShadow: filter === t ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
-              }}>{t}</button>
-            ))}
-          </div>
+      {/* ── Action buttons ── */}
+<div className="absolute top-8 right-2 flex flex-col gap-1.5 z-[9999]">
+
+  {/* EDIT */}
+  <button
+    onClick={e => {
+      e.stopPropagation();
+      onEdit(session, day, slotNumber, division);
+    }}
+    className="
+      relative z-[9999]
+      w-9 h-9 rounded-xl
+      bg-white !opacity-100
+      border border-slate-300
+      flex items-center justify-center
+      shadow-xl
+      hover:bg-indigo-50 hover:border-indigo-300
+      hover:scale-110 active:scale-95
+      transition-all duration-150
+    "
+    title="Edit"
+  >
+    <span className="flex items-center justify-center">
+      <Edit3 size={16} color="#475569" />
+    </span>
+  </button>
+
+  {/* DELETE */}
+  <button
+    onClick={e => {
+      e.stopPropagation();
+      onDelete(day, slotNumber, division, session);
+    }}
+    className="
+      relative z-[9999]
+      w-9 h-9 rounded-xl
+      bg-white !opacity-100
+      border border-slate-300
+      flex items-center justify-center
+      shadow-xl
+      hover:bg-red-50 hover:border-red-300
+      hover:scale-110 active:scale-95
+      transition-all duration-150
+    "
+    title="Delete"
+  >
+    <span className="flex items-center justify-center">
+      <Trash2 size={16} color="#e11d48" />
+    </span>
+  </button>
+
+</div>
+
+      {/* ── Live dot ── */}
+      {isCurrent && (
+        <div className="absolute top-2 left-2 w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse shadow-md border-2 border-white" />
+      )}
+
+      {/* ── Drop overlay ── */}
+      {isDropTarget && (
+        <div className="absolute inset-0 flex items-center justify-center bg-indigo-100/80 rounded-xl z-10 backdrop-blur-[2px]">
+          <span className="text-sm font-bold text-indigo-700 bg-white px-3 py-1.5 rounded-full shadow-lg">Swap here</span>
         </div>
+      )}
+    </div>
+  );
+}, (p, n) =>
+  p.session   === n.session   &&
+  p.isCurrent === n.isCurrent &&
+  p.hasClash  === n.hasClash  &&
+  p.isDragging=== n.isDragging&&
+  p.dragTarget=== n.dragTarget
+);
 
-        <div style={{ padding: "12px 16px", maxHeight: 320, overflowY: "auto" }}>
-          {filtered.map(subject => {
-            const isSelected = selected.includes(subject.id);
-            const style = SUBJECT_STYLES[subject.type] ?? SUBJECT_STYLES.theory;
-            return (
-              <button key={subject.id}
-                onClick={() => setSelected(prev => isSelected ? prev.filter(id => id !== subject.id) : [...prev, subject.id])}
-                style={{
-                  width: "100%", display: "flex", alignItems: "center", gap: 12,
-                  padding: "10px 12px", borderRadius: 12, marginBottom: 6,
-                  border: isSelected ? `2px solid ${style.border}` : "2px solid transparent",
-                  background: isSelected ? style.bg : "#fafafa",
-                  cursor: "pointer", transition: "all .15s", textAlign: "left",
-                }}
+// ─────────────────────────── Split Card ──────────────────────────────────────
+
+const SplitCard = memo(({
+  sessions, day, slotNumber, division, hasClash,
+  onEdit, onDelete, onDragStart, onDragOver, onDrop, dragTarget
+}) => {
+
+  const isDropTarget =
+    dragTarget?.day === day &&
+    dragTarget?.slotNumber === slotNumber &&
+    dragTarget?.division === division;
+
+  return (
+    <div
+      style={{
+        height: SLOT_H,
+        outline: hasClash
+          ? "2.5px solid #f87171"
+          : isDropTarget
+          ? "2.5px solid #818cf8"
+          : "none",
+        outlineOffset: 2,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+      }}
+      onDragOver={e => {
+        e.preventDefault();
+        onDragOver({ day, slotNumber, division });
+      }}
+      onDrop={e => {
+        e.preventDefault();
+        onDrop({ day, slotNumber, division });
+      }}
+      className="relative isolate rounded-xl overflow-visible bg-white border border-slate-200 shrink-0"
+    >
+
+      {/* HEADER */}
+      <div className="flex items-center gap-2 px-3 pt-2.5 pb-1 border-b border-slate-100 shrink-0">
+        <Clock size={12} className="text-slate-400" />
+        <span className="text-xs font-semibold text-slate-400 tabular-nums">
+          {TIME_SLOTS[slotNumber].start} – {TIME_SLOTS[slotNumber].end}
+        </span>
+
+        <span className="ml-auto flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-600">
+          <Layers size={10} /> {sessions.length} Split
+        </span>
+      </div>
+
+      {/* SPLIT ITEMS */}
+      <div className="grid grid-cols-2 gap-0.5 p-2" style={{ height: SLOT_H - 32 }}>
+        {sessions.map((s, i) => {
+          const cfg = tc(s.type);
+
+          return (
+            <div
+              key={s.id ?? i}
+              draggable
+              onDragStart={e => {
+                if (e.target.closest("button")) {
+                  e.preventDefault();
+                  return;
+                }
+                e.dataTransfer.effectAllowed = "move";
+                onDragStart({ session: s, day, slotNumber, division, idx: i });
+              }}
+              style={{
+                borderLeft: `3px solid ${cfg.border}`,
+                background: cfg.bg,
+              }}
+              className="relative isolate rounded-lg p-1 flex flex-col cursor-grab overflow-visible"
+            >
+
+              {/* SUBJECT */}
+              {s.subject_code?.toString().trim() && (
+                <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 leading-none mb-0.5">
+                  {s.subject_code}
+                </div>
+              )}
+
+              <div
+                style={{ color: cfg.text }}
+                className="text-xs font-bold leading-tight line-clamp-2"
               >
-                <div style={{
-                  width: 34, height: 34, borderRadius: 8, display: "flex", alignItems: "center",
-                  justifyContent: "center", fontSize: 12, fontWeight: 700,
-                  background: isSelected ? "#fff" : "#e2e8f0",
-                  color: isSelected ? style.text : "#94a3b8",
-                }}>
-                  {isSelected ? "✓" : subject.code?.slice(0, 2)}
+                {s.subject_name ?? s.subject}
+              </div>
+
+              {/* DETAILS */}
+              <div className="relative items-center gap-1 mt-auto flex-wrap pt-1">
+                {s.room && (
+                  <div className="flex items-center gap-0.5 text-[10px] text-slate-500 font-medium">
+                    <MapPin size={9} className="text-rose-400" />
+                    {s.room}
+                  </div>
+                )}
+
+                {s.batch && s.batch !== "NULL" && (
+                  <span className="text-[9px] font-black text-indigo-500">
+                    {s.batch} Batch
+                  </span>
+                )}
+              </div>
+
+              {/* 🔥 ACTION BUTTONS (FINAL FIX) */}
+              <div className="absolute top-12 right-1 flex flex-col gap-0.5 z-[9999] pointer-events-auto">
+
+                {/* EDIT */}
+                <button
+                  onClick={e => {
+                    e.stopPropagation();
+                    onEdit(s, day, slotNumber, division);
+                  }}
+                  className=" 
+                    relative z-[9999]
+                    w-6 h-6 rounded-xl
+                    bg-white !opacity-100
+                    border border-slate-300
+                    flex items-center justify-center
+                    shadow-xl
+                    hover:bg-red-50 hover:border-red-300
+                    hover:scale-110 active:scale-95
+                    transition-all duration-150
+                  "
+                >
+                  <span className="flex items-center justify-center">
+                    <Edit3 size={10} color="#475569" />
+                  </span>
+                </button>
+
+                {/* DELETE */}
+                <button
+                  onClick={e => {
+                    e.stopPropagation();
+                    onDelete(day, slotNumber, division, s);
+                  }}
+                  className="
+                    relative z-[9999]
+                    w-6 h-6 rounded-xl
+                    bg-white !opacity-100
+                    border border-slate-300
+                    flex items-center justify-center
+                    shadow-xl
+                    hover:bg-red-50 hover:border-red-300
+                    hover:scale-110 active:scale-95
+                    transition-all duration-150
+                  "
+                >
+                  <span className="flex items-center justify-center">
+                    <Trash2 size={12} color="#e11d48" />
+                  </span>
+                </button>
+
+              </div>
+
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}, (p, n) =>
+  p.sessions === n.sessions &&
+  p.hasClash === n.hasClash &&
+  p.dragTarget === n.dragTarget
+);
+// ─────────────────────────── Empty Slot Card ─────────────────────────────────
+
+const EmptyCard = memo(({ day, slotNumber, division, onAdd, onDragOver, onDrop, dragTarget }) => {
+  const isDropTarget = dragTarget?.day === day && dragTarget?.slotNumber === slotNumber && dragTarget?.division === division;
+  return (
+    <div
+      style={{ height: SLOT_H }}
+      onDragOver={e => { e.preventDefault(); onDragOver({ day, slotNumber, division }); }}
+      onDrop={e => { e.preventDefault(); onDrop({ day, slotNumber, division }); }}
+      onClick={() => onAdd(day, slotNumber, division)}
+      className={`group rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer shrink-0 transition-all duration-200 ${
+        isDropTarget
+          ? "border-indigo-400 bg-indigo-50 scale-[1.01] shadow-md"
+          : "border-slate-200 bg-slate-50/60 hover:border-indigo-300 hover:bg-indigo-50/40 hover:scale-[1.01]"
+      }`}
+    >
+      {isDropTarget ? (
+        <span className="text-sm font-bold text-indigo-600 bg-white px-3 py-1.5 rounded-full shadow-md">Drop here</span>
+      ) : (
+        <>
+          <div className="w-9 h-9 rounded-full bg-slate-200 group-hover:bg-indigo-100 flex items-center justify-center mb-1.5 transition-colors">
+            <Plus size={17} className="text-slate-400 group-hover:text-indigo-500" />
+          </div>
+          <span className="text-xs font-bold text-slate-400 group-hover:text-indigo-500 transition-colors">Add Lecture</span>
+        </>
+      )}
+    </div>
+  );
+}, (p, n) => p.dragTarget === n.dragTarget);
+
+// ─────────────────────────── Session Modal ───────────────────────────────────
+
+const SessionModal = memo(({
+  isOpen, session, day, slotNumber, division, mode,
+  onClose, onSave,
+  facultyList, roomsList, subjectsList, timetable,
+}) => {
+  const [form, setForm] = useState({
+    subject_id: "", subject_name: "", subject_code: "", type: "theory",
+    faculty_id: "", faculty_name: "", room_id: "", room_name: "", batch: "",
+  });
+  const [moveTarget, setMoveTarget] = useState({ day: "Monday", slot: 1 });
+  const [showMove, setShowMove]     = useState(false);
+  const [warn, setWarn]             = useState(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setShowMove(false); setWarn(null);
+    setMoveTarget({ day: day ?? "Monday", slot: slotNumber ?? 1 });
+    if (session) {
+      setForm({
+        subject_id:   session.subject_id   ?? "",
+        subject_name: session.subject_name ?? session.subject ?? "",
+        subject_code: session.subject_code ?? "",
+        type:         session.type ?? "theory",
+        faculty_id:   session.faculty_id   ?? "",
+        faculty_name: session.faculty_name ?? session.faculty ?? "",
+        room_id:      session.room_id      ?? "",
+        room_name:    session.room_name    ?? session.room    ?? "",
+        batch: (session.batch === "Full Division" || session.batch === "-") ? "" : (session.batch ?? ""),
+      });
+    } else {
+      setForm({ subject_id: "", subject_name: "", subject_code: "", type: "theory", faculty_id: "", faculty_name: "", room_id: "", room_name: "", batch: "" });
+    }
+  }, [isOpen, session, day, slotNumber]);
+
+  useEffect(() => {
+    if (!isOpen || !timetable) return;
+    const td  = showMove ? moveTarget.day  : day;
+    const ts  = showMove ? moveTarget.slot : slotNumber;
+    const eid = mode === "edit" ? (session?.id ?? null) : null;
+    setWarn(
+      roomConflict(timetable, form.room_name, td, ts, eid) ||
+      facConflict (timetable, form.faculty_name, td, ts, eid) ||
+      null
+    );
+  }, [form.room_name, form.faculty_name, moveTarget, showMove, isOpen, timetable, day, slotNumber, mode, session]);
+
+  const canSave    = !!form.subject_id;
+  const shouldMove = mode === "edit" && showMove && (moveTarget.day !== day || moveTarget.slot !== slotNumber);
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          key="backdrop"
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100000] flex items-center justify-center p-4"
+          onClick={onClose}
+        >
+          <motion.div
+            key="panel"
+            initial={{ scale: 0.92, y: 24, opacity: 0 }}
+            animate={{ scale: 1,    y: 0,  opacity: 1 }}
+            exit  ={{ scale: 0.92, y: 24, opacity: 0 }}
+            transition={{ type: "spring", damping: 28, stiffness: 340 }}
+            className="relative z-[100001] bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-white/50"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-5 text-white relative">
+              <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors">
+                <X size={16} />
+              </button>
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-white/20 rounded-xl">
+                  {mode === "add" ? <Plus size={20} /> : <Edit3 size={20} />}
                 </div>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{subject.name}</div>
-                  <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>{subject.code} · {subject.lectures_per_week} lec/wk</div>
+                  <h3 className="text-xl font-bold">{mode === "add" ? "Add Lecture" : "Edit Lecture"}</h3>
+                  <p className="text-white/70 text-sm mt-0.5">
+                    {day} · {TIME_SLOTS[slotNumber]?.start} – {TIME_SLOTS[slotNumber]?.end} · Div {division}
+                  </p>
                 </div>
-              </button>
-            );
-          })}
-        </div>
-
-        <div style={{ padding: "12px 16px", borderTop: "1px solid #f1f5f9", display: "flex", gap: 8 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: "10px 0", borderRadius: 11, border: "none", cursor: "pointer", background: "#f1f5f9", color: "#475569", fontWeight: 600, fontSize: 13 }}>Cancel</button>
-          <button onClick={() => onSave(faculty.id, selected)} disabled={saving}
-            style={{ ...btnPrimary, flex: 1, padding: "10px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: saving ? 0.65 : 1 }}
-          >
-            {saving ? <><SpinIcon /> Saving…</> : "Save Changes"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ── Faculty Card ──────────────────────────────────────────────────────────────
-
-const FacultyCard = memo(({ faculty, onEdit }) => (
-  <div style={{ background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0", padding: "18px 20px", transition: "box-shadow .2s, border-color .2s" }}
-    onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 8px 24px rgba(99,102,241,0.10)"; e.currentTarget.style.borderColor = "#c7d2fe"; }}
-    onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "#e2e8f0"; }}
-  >
-    <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
-      <Avatar name={faculty.name} id={faculty.id} size={52} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>{faculty.name}</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 10, fontFamily: "monospace", background: "#f1f5f9", color: "#64748b", padding: "2px 7px", borderRadius: 5, fontWeight: 600 }}>{faculty.college_id}</span>
-              <span style={{ fontSize: 11, color: "#94a3b8" }}>{faculty.email}</span>
-            </div>
-          </div>
-          <button onClick={() => onEdit(faculty)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 11px", borderRadius: 8, border: "none", cursor: "pointer", background: "#eef2ff", color: "#4f46e5", fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
-            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-            Assign
-          </button>
-        </div>
-        <div style={{ marginTop: 12 }}>
-          <div style={{ fontSize: 10, color: "#cbd5e1", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Subjects</div>
-          {faculty.subjects?.length > 0 ? (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-              {faculty.subjects.map(s => <SubjectBadge key={s.id} subject={s} />)}
-            </div>
-          ) : <span style={{ fontSize: 11, color: "#cbd5e1", fontStyle: "italic" }}>No subjects assigned</span>}
-        </div>
-        {faculty.phone && (
-          <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 10, fontSize: 11, color: "#94a3b8" }}>
-            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-            {faculty.phone}
-          </div>
-        )}
-      </div>
-    </div>
-  </div>
-));
-
-// ── Attendance Row ────────────────────────────────────────────────────────────
-
-const AttendanceRow = memo(({ faculty, status, onStatusChange }) => {
-  const cfg = STATUS[status] ?? STATUS.unmarked;
-  const Icon = STATUS_ICONS[status];
-  return (
-    <div style={{ padding: "14px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 14, background: "#fff" }}>
-      <div style={{ position: "relative", flexShrink: 0 }}>
-        <Avatar name={faculty.name} id={faculty.id} size={44} />
-        <div style={{ position: "absolute", bottom: -2, right: -2, width: 13, height: 13, borderRadius: "50%", background: cfg.dot, border: "2px solid #fff" }} />
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontWeight: 600, fontSize: 14, color: "#0f172a" }}>{faculty.name}</span>
-          <span style={{ fontSize: 10, fontFamily: "monospace", background: "#f1f5f9", color: "#64748b", padding: "2px 6px", borderRadius: 4, fontWeight: 600 }}>{faculty.college_id}</span>
-        </div>
-        <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>{faculty.email}</div>
-        {faculty.subjects?.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
-            {faculty.subjects.slice(0, 2).map(s => <SubjectBadge key={s.id} subject={s} />)}
-            {faculty.subjects.length > 2 && <span style={{ fontSize: 10, color: "#94a3b8", background: "#f1f5f9", padding: "2px 7px", borderRadius: 5, fontWeight: 600 }}>+{faculty.subjects.length - 2}</span>}
-          </div>
-        )}
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-        <span style={{ padding: "5px 11px", borderRadius: 8, fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 5, background: cfg.bg, color: cfg.text, border: `1px solid ${cfg.border}` }}>
-          {Icon ? <Icon size={13} color={cfg.text} /> : "—"} {cfg.label}
-        </span>
-        <StatusToggle currentStatus={status} onStatusChange={onStatusChange} facultyId={faculty.id} />
-      </div>
-    </div>
-  );
-});
-
-// ── Main Component ────────────────────────────────────────────────────────────
-
-export default function FacultyComponent() {
-  const [faculty, setFaculty] = useState([]);
-  const [subjects, setSubjects] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("faculty");
-
-  // Loading animation state — cycling side animations like AdminTimetableComponent
-  const [sideIdx, setSideIdx] = useState(0);
-  const [showSide, setShowSide] = useState(true);
-
-  // Faculty tab
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedFaculty, setSelectedFaculty] = useState(null);
-  const [savingSubjects, setSavingSubjects] = useState(false);
-  const [toast, setToast] = useState(null);
-
-  // Attendance tab
-  const [selectedDate, setSelectedDate] = useState(todayStr());
-  const [attendance, setAttendance] = useState({});
-  const [attendanceLoading, setAttendanceLoading] = useState(false);
-  const [attendanceSaving, setAttendanceSaving] = useState(false);
-  const [attendanceSearch, setAttendanceSearch] = useState("");
-
-  // ── Toast ─────────────────────────────────────────────────────────────────
-  const showToast = useCallback((message, type = "success") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  }, []);
-
-  // ── Fetch Data with cycling animation ────────────────────────────────────
-  const fetchData = useCallback(async () => {
-    setLoading(true); setError(null);
-    try {
-      const [facultyRes, subjectsRes] = await Promise.all([
-        api("/api/timetable/faculty/all"),
-        api("/api/timetable/subjects/all"),
-      ]);
-      const subjectMap = {};
-      (subjectsRes.data ?? []).forEach(s => { subjectMap[s.id] = s; });
-      setSubjects(subjectsRes.data ?? []);
-      if (facultyRes.success) {
-        setFaculty((facultyRes.data ?? []).map(f => ({
-          ...f,
-          subjects: (f.subject_ids ?? []).map(id => subjectMap[id]).filter(Boolean),
-        })));
-      }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Start side animation cycle on mount while loading
-  useEffect(() => {
-    let mounted = true;
-    const cycleTimer = setInterval(() => {
-      if (!mounted) return;
-      setShowSide(false);
-      setTimeout(() => {
-        if (!mounted) return;
-        setSideIdx(prev => prev === 0 ? 1 : 0);
-        setShowSide(true);
-      }, 350);
-    }, 2500);
-
-    fetchData().finally(() => {
-      if (mounted) clearInterval(cycleTimer);
-    });
-
-    return () => { mounted = false; clearInterval(cycleTimer); };
-  }, []);
-
-  // ── Fetch Attendance ──────────────────────────────────────────────────────
-  const fetchAttendance = useCallback(async (date) => {
-    setAttendanceLoading(true);
-    try {
-      const data = await api(`/api/faculty/attendance?date=${date}`);
-      const map = {};
-      if (data.success) data.data.forEach(r => { map[r.faculty_id] = r.status; });
-      setAttendance(map);
-    } catch { setAttendance({}); }
-    finally { setAttendanceLoading(false); }
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === "attendance") fetchAttendance(selectedDate);
-  }, [activeTab, selectedDate, fetchAttendance]);
-
-  // ── Save Subjects ─────────────────────────────────────────────────────────
-  const handleSaveSubjects = useCallback(async (facultyId, subjectIds) => {
-    setSavingSubjects(true);
-    try {
-      await api(`/api/faculty/${facultyId}/subjects`, { method: "PUT", body: JSON.stringify({ subject_ids: subjectIds }) });
-      const subjectMap = {};
-      subjects.forEach(s => { subjectMap[s.id] = s; });
-      setFaculty(prev => prev.map(f =>
-        f.id === facultyId ? { ...f, subject_ids: subjectIds, subjects: subjectIds.map(id => subjectMap[id]).filter(Boolean) } : f
-      ));
-      setSelectedFaculty(null);
-      showToast("Subjects updated successfully");
-    } catch (err) { showToast(err.message, "error"); }
-    finally { setSavingSubjects(false); }
-  }, [subjects, showToast]);
-
-  // ── Save Attendance ───────────────────────────────────────────────────────
-  const handleSaveAttendance = useCallback(async () => {
-    setAttendanceSaving(true);
-    try {
-      const records = faculty
-        .filter(f => attendance[f.id] && attendance[f.id] !== "unmarked")
-        .map(f => ({ faculty_id: f.id, status: attendance[f.id] }));
-      await api("/api/faculty/attendance", { method: "PUT", body: JSON.stringify({ date: selectedDate, records }) });
-      showToast("Attendance saved successfully");
-    } catch (err) { showToast(err.message, "error"); }
-    finally { setAttendanceSaving(false); }
-  }, [faculty, attendance, selectedDate, showToast]);
-
-  const handleDateChange = useCallback((days) => {
-    const date = new Date(selectedDate + "T00:00:00");
-    date.setDate(date.getDate() + days);
-    setSelectedDate(date.toISOString().split("T")[0]);
-  }, [selectedDate]);
-
-  const handleMarkAll = useCallback((status) => {
-    const m = {};
-    faculty.forEach(f => { m[f.id] = status; });
-    setAttendance(m);
-  }, [faculty]);
-
-  const handleStatusChange = useCallback((facultyId, status) => {
-    setAttendance(prev => ({ ...prev, [facultyId]: prev[facultyId] === status ? "unmarked" : status }));
-  }, []);
-
-  // ── Filtering ─────────────────────────────────────────────────────────────
-  const filteredFaculty = useMemo(() => {
-    let r = faculty;
-    if (statusFilter === "assigned") r = r.filter(f => f.subjects?.length > 0);
-    else if (statusFilter === "unassigned") r = r.filter(f => !f.subjects?.length);
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      r = r.filter(f => f.name?.toLowerCase().includes(q) || f.college_id?.toLowerCase().includes(q) || f.email?.toLowerCase().includes(q));
-    }
-    return r;
-  }, [faculty, searchQuery, statusFilter]);
-
-  const filteredAttendance = useMemo(() => {
-    if (!attendanceSearch) return faculty;
-    const q = attendanceSearch.toLowerCase();
-    return faculty.filter(f => f.name?.toLowerCase().includes(q) || f.college_id?.toLowerCase().includes(q));
-  }, [faculty, attendanceSearch]);
-
-  const attendanceStats = useMemo(() => {
-    const present = Object.values(attendance).filter(s => s === "present").length;
-    const absent  = Object.values(attendance).filter(s => s === "absent").length;
-    const leave   = Object.values(attendance).filter(s => s === "leave").length;
-    return { present, absent, leave, unmarked: faculty.length - present - absent - leave };
-  }, [attendance, faculty]);
-
-  // ── Render loading / error full-screen ────────────────────────────────────
-  if (loading) return <LoadingScreen sideIdx={sideIdx} showSide={showSide} />;
-  if (error)   return <ErrorScreen error={error} onRetry={fetchData} />;
-
-  // ── Shared input style ────────────────────────────────────────────────────
-  const inputStyle = {
-    width: "100%", padding: "9px 12px 9px 36px", borderRadius: 11,
-    border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none",
-    background: "#fff", color: "#1e293b", boxSizing: "border-box",
-  };
-
-  return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc", padding: "24px 24px 48px", fontFamily: "'DM Sans', 'Segoe UI', sans-serif" }}>
-
-      {/* Toast */}
-      {toast && (
-        <div style={{
-          position: "fixed", top: 16, right: 16, zIndex: 100,
-          padding: "12px 18px", borderRadius: 12, fontSize: 13, fontWeight: 600,
-          display: "flex", alignItems: "center", gap: 8,
-          background: toast.type === "success" ? "#ecfdf5" : "#fff1f2",
-          color: toast.type === "success" ? "#059669" : "#e11d48",
-          border: `1.5px solid ${toast.type === "success" ? "#a7f3d0" : "#fecdd3"}`,
-          boxShadow: "0 8px 24px rgba(0,0,0,0.09)", animation: "slideIn .25s ease",
-        }}>
-          <style>{`@keyframes slideIn { from { opacity:0; transform:translateY(-8px);} to { opacity:1; transform:none; } }`}</style>
-          {toast.type === "success" ? <PresentIcon size={14} color="#059669" /> : <AbsentIcon size={14} color="#e11d48" />}
-          {toast.message}
-        </div>
-      )}
-
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, background: "linear-gradient(135deg, #6366f1, #4f46e5)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            Faculty Management
-          </h1>
-          <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8", fontWeight: 500 }}>{faculty.length} faculty members</p>
-        </div>
-        <button onClick={fetchData} style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 11, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-          Refresh
-        </button>
-      </div>
-
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: 4, padding: 4, background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 14, width: "fit-content", marginBottom: 24, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-        {[{ key: "faculty", label: "Faculty & Subjects", emoji: "👥" }, { key: "attendance", label: "Attendance", emoji: "📋" }].map(({ key, label, emoji }) => (
-          <button key={key} onClick={() => setActiveTab(key)} style={{
-            padding: "9px 20px", borderRadius: 10, border: "none", cursor: "pointer",
-            fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, transition: "all .15s",
-            background: activeTab === key ? "linear-gradient(135deg, #6366f1, #4f46e5)" : "transparent",
-            color: activeTab === key ? "#fff" : "#64748b",
-            boxShadow: activeTab === key ? "0 4px 12px #6366f133" : "none",
-          }}><span>{emoji}</span>{label}</button>
-        ))}
-      </div>
-
-      {/* ── Faculty Tab ── */}
-      {activeTab === "faculty" && (
-        <div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 20 }}>
-            <StatsCard label="Total Faculty" value={faculty.length} color="indigo" icon={<svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>} />
-            <StatsCard label="Subjects Assigned" value={faculty.filter(f => f.subjects?.length > 0).length} color="emerald" icon={<svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>} />
-            <StatsCard label="Unassigned" value={faculty.filter(f => !f.subjects?.length).length} color="amber" icon={<svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>} />
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 220, position: "relative" }}>
-              <svg style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-              <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search by name, ID, or email…" style={inputStyle} />
-            </div>
-            <div style={{ display: "flex", gap: 3, padding: 3, background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 10 }}>
-              {[{ key: "all", label: "All" }, { key: "assigned", label: "Assigned" }, { key: "unassigned", label: "Unassigned" }].map(({ key, label }) => (
-                <button key={key} onClick={() => setStatusFilter(key)} style={{
-                  padding: "6px 14px", borderRadius: 7, border: "none", cursor: "pointer",
-                  fontSize: 12, fontWeight: 600, transition: "all .15s",
-                  background: statusFilter === key ? "#6366f1" : "transparent",
-                  color: statusFilter === key ? "#fff" : "#64748b",
-                }}>{label}</button>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 14 }}>
-            {filteredFaculty.length === 0 ? (
-              <div style={{ gridColumn: "1/-1", padding: "64px 0", textAlign: "center", color: "#94a3b8", background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0", fontSize: 13 }}>No faculty members found</div>
-            ) : filteredFaculty.map(f => <FacultyCard key={f.id} faculty={f} onEdit={setSelectedFaculty} />)}
-          </div>
-        </div>
-      )}
-
-      {/* ── Attendance Tab ── */}
-      {activeTab === "attendance" && (
-        <div>
-          <div style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 16, padding: "14px 18px", marginBottom: 18, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 2, background: "#f1f5f9", borderRadius: 9, padding: 3 }}>
-                <button onClick={() => handleDateChange(-1)} style={{ width: 30, height: 30, borderRadius: 7, border: "none", background: "none", cursor: "pointer", color: "#64748b", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>
-                <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} style={{ fontSize: 12, fontWeight: 600, color: "#1e293b", border: "none", background: "transparent", outline: "none", padding: "0 4px" }} />
-                <button onClick={() => handleDateChange(1)} style={{ width: 30, height: 30, borderRadius: 7, border: "none", background: "none", cursor: "pointer", color: "#64748b", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>›</button>
               </div>
-              {selectedDate !== todayStr() && (
-                <button onClick={() => setSelectedDate(todayStr())} style={{ padding: "5px 11px", borderRadius: 7, border: "none", cursor: "pointer", background: "#eef2ff", color: "#6366f1", fontSize: 11, fontWeight: 600 }}>Today</button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4 max-h-[62vh] overflow-y-auto">
+              <AnimatePresence>
+                {warn && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2.5 text-xs font-medium">
+                      <AlertTriangle size={14} className="shrink-0 mt-0.5 text-red-500" />{warn}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Subject */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">Subject *</label>
+                <div className="relative">
+                  <select
+                    value={form.subject_id}
+                    onChange={e => {
+                      const s = (subjectsList ?? []).find(x => String(x.id) === e.target.value);
+                      setForm(f => ({ ...f, subject_id: e.target.value, subject_name: s?.name ?? "", subject_code: s?.code ?? "", type: s?.type ?? f.type }));
+                    }}
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 appearance-none pr-8"
+                  >
+                    <option value="">{(subjectsList?.length ?? 0) ? "Select Subject" : "Loading…"}</option>
+                    {(subjectsList ?? []).map(s => (
+                      <option key={s.id} value={s.id}>{s.code ? `${s.code} — ` : ""}{(s.name ?? "").slice(0, 42)}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Type */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">Session Type</label>
+                <div className="flex gap-2">
+                  {["theory", "lab", "test"].map(t => (
+                    <button key={t} type="button" onClick={() => setForm(f => ({ ...f, type: t }))}
+                      className={`flex-1 py-2 rounded-xl text-sm font-bold capitalize transition-all ${
+                        form.type === t
+                          ? t === "theory" ? "bg-blue-500 text-white shadow-lg"
+                            : t === "lab"  ? "bg-green-500 text-white shadow-lg"
+                            :                "bg-red-500   text-white shadow-lg"
+                          : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                      }`}
+                    >{t}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Faculty + Room */}
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: "Faculty", key: "faculty_id", nameKey: "faculty_name", list: facultyList },
+                  { label: "Room",    key: "room_id",    nameKey: "room_name",    list: roomsList   },
+                ].map(({ label, key, nameKey, list }) => (
+                  <div key={key}>
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">{label}</label>
+                    <div className="relative">
+                      <select
+                        value={form[key]}
+                        onChange={e => {
+                          const found = (list ?? []).find(x => String(x.id) === e.target.value);
+                          setForm(f => ({ ...f, [key]: e.target.value, [nameKey]: found?.name ?? "" }));
+                        }}
+                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 appearance-none pr-6"
+                      >
+                        <option value="">{(list?.length ?? 0) ? "None / TBD" : "Loading…"}</option>
+                        {(list ?? []).map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
+                      </select>
+                      <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Batch */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1.5">Batch (optional)</label>
+                <div className="flex gap-2">
+                  {["", "1", "2", "3"].map(b => (
+                    <button key={b} type="button" onClick={() => setForm(f => ({ ...f, batch: b }))}
+                      className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${
+                        form.batch === b ? "bg-indigo-500 text-white shadow-lg" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                      }`}
+                    >{b === "" ? "Full Div" : `Batch ${b}`}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Move (edit only) */}
+              {mode === "edit" && (
+                <div>
+                  <button onClick={() => setShowMove(p => !p)} className="flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800 transition-colors">
+                    <RefreshCw size={13} />
+                    Move to different slot
+                    <ChevronDown size={13} className={`transition-transform ${showMove ? "rotate-180" : ""}`} />
+                  </button>
+                  <AnimatePresence>
+                    {showMove && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden mt-2"
+                      >
+                        <div className="grid grid-cols-2 gap-2 p-3 bg-indigo-50 rounded-xl">
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Day</label>
+                            <select value={moveTarget.day} onChange={e => setMoveTarget(t => ({ ...t, day: e.target.value }))}
+                              className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none">
+                              {DAYS.map(d => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Slot</label>
+                            <select value={moveTarget.slot} onChange={e => setMoveTarget(t => ({ ...t, slot: Number(e.target.value) }))}
+                              className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none">
+                              {SESSION_SLOTS.map(s => (
+                                <option key={s} value={s}>{TIME_SLOTS[s].start} – {TIME_SLOTS[s].end}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               )}
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>Mark all:</span>
-              {["present", "absent", "leave"].map(s => {
-                const Icon = STATUS_ICONS[s];
-                return (
-                  <button key={s} onClick={() => handleMarkAll(s)} style={{ padding: "5px 11px", borderRadius: 8, border: "none", cursor: "pointer", background: STATUS[s].bg, color: STATUS[s].text, fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>
-                    <Icon size={13} color={STATUS[s].text} /> {STATUS[s].label}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div style={{ marginLeft: "auto" }}>
-              <button onClick={handleSaveAttendance} disabled={attendanceSaving} style={{ ...btnPrimary, display: "flex", alignItems: "center", gap: 6, opacity: attendanceSaving ? 0.65 : 1 }}>
-                {attendanceSaving ? <><SpinIcon /> Saving…</> : <><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg> Save Attendance</>}
+            {/* Footer */}
+            <div className="px-6 pb-6 flex gap-3">
+              <button type="button" onClick={onClose}
+                className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-semibold text-sm hover:bg-slate-200 transition-colors">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => canSave && onSave(form, moveTarget, shouldMove, warn)}
+                disabled={!canSave}
+                className={`flex-1 py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ${
+                  canSave
+                    ? warn
+                      ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg hover:opacity-90"
+                      : "bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg hover:opacity-90"
+                    : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                }`}
+              >
+                <CheckCircle size={16} />
+                {warn ? "Save Anyway" : shouldMove ? "Save & Move" : mode === "add" ? "Add Lecture" : "Save Changes"}
               </button>
             </div>
-          </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+});
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 18 }}>
-            <StatsCard label="Present" value={attendanceStats.present} color="emerald" icon={<PresentIcon size={20} color="#047857" />} />
-            <StatsCard label="Absent" value={attendanceStats.absent} color="rose" icon={<AbsentIcon size={20} color="#be123c" />} />
-            <StatsCard label="On Leave" value={attendanceStats.leave} color="amber" icon={<LeaveIcon size={20} color="#b45309" />} />
-            <StatsCard label="Unmarked" value={attendanceStats.unmarked} color="slate" icon={<svg width="20" height="20" fill="none" stroke="#64748b" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>} />
-          </div>
+// ─────────────────────────── Division Grid ───────────────────────────────────
 
-          <div style={{ maxWidth: 280, marginBottom: 14, position: "relative" }}>
-            <svg style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-            <input value={attendanceSearch} onChange={e => setAttendanceSearch(e.target.value)} placeholder="Search faculty…" style={inputStyle} />
-          </div>
+const DivisionGrid = memo(({
+  division, timetable, clashes, currentTime,
+  onAdd, onEdit, onDelete,
+  dragSourceRef, dragTarget, setDragTarget, onDropComplete, onDragStart,
+}) => {
+  const todayIdx = currentTime.getDay() - 1; // 0 = Monday
 
-          {attendanceLoading ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 0", background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0" }}>
-              <div style={{ width: 180, height: 180 }}><Lottie animationData={sideAnimation1} loop /></div>
-              <p style={{ margin: "8px 0 0", fontSize: 13, color: "#94a3b8", fontWeight: 500 }}>Loading attendance…</p>
-            </div>
-          ) : (
-            <div style={{ background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
-              {filteredAttendance.length === 0 ? (
-                <div style={{ padding: "64px 0", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No faculty members found</div>
-              ) : filteredAttendance.map(f => (
-                <AttendanceRow key={f.id} faculty={f} status={attendance[f.id] ?? "unmarked"} onStatusChange={handleStatusChange} />
-              ))}
-            </div>
-          )}
+  const isCurrentSlot = useCallback((day, slot) => {
+    if (DAYS.indexOf(day) !== todayIdx) return false;
+    const s = TIME_SLOTS[slot];
+    if (!s) return false;
+    const [sh, sm] = s.start.split(":").map(Number);
+    const [eh, em] = s.end.split(":").map(Number);
+    const cur = currentTime.getHours() * 60 + currentTime.getMinutes();
+    return cur >= sh * 60 + sm && cur < eh * 60 + em;
+  }, [todayIdx, currentTime]);
 
-          <p style={{ textAlign: "center", fontSize: 11, color: "#94a3b8", marginTop: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-            Attendance for {fmtDate(selectedDate)}
+  const clashSet = useMemo(() => {
+    const set = new Set();
+    clashes.forEach(c => set.add(`${c.day}-${c.slot}`));
+    return set;
+  }, [clashes]);
+
+  const grouped = useMemo(() => {
+    const out = {};
+    for (const day of DAYS) {
+      out[day] = {};
+      for (const slot of SESSION_SLOTS) out[day][slot] = [];
+      for (const s of (timetable?.[day]?.[division] ?? []))
+        if (out[day][s.slot]) out[day][s.slot].push(s);
+    }
+    return out;
+  }, [timetable, division]);
+
+  const stats = useMemo(() => computeStats(timetable, division), [timetable, division]);
+
+  const handleDragOver = useCallback(target => {
+    setDragTarget(prev =>
+      prev?.day === target.day && prev?.slotNumber === target.slotNumber && prev?.division === target.division
+        ? prev : { ...target }
+    );
+  }, [setDragTarget]);
+
+  const divGradient = division === "A"
+    ? "from-indigo-500 via-violet-500 to-purple-600"
+    : "from-emerald-500 via-teal-500 to-cyan-600";
+
+  return (
+    <div className="bg-white rounded-2xl shadow-xl border border-slate-200/80 overflow-hidden">
+
+      {/* Division header */}
+      <div className={`px-5 py-4 flex items-center gap-4 bg-gradient-to-r ${divGradient}`}>
+        <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shadow-inner shrink-0">
+          <span className="text-white font-black text-2xl leading-none">{division}</span>
+        </div>
+        <div>
+          <h2 className="text-white font-black text-2xl leading-none">Division {division}</h2>
+          <p className="text-white/70 text-sm mt-0.5">
+            {stats.theory} Theory · {stats.lab} Labs · {stats.test} Tests · {stats.total} total
           </p>
         </div>
-      )}
+        <div className="ml-auto flex items-center gap-2">
+          {clashes.length > 0 ? (
+            <div className="flex items-center gap-1.5 bg-red-500/80 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-black shadow">
+              <AlertTriangle size={13} />{clashes.length} Clash{clashes.length > 1 ? "es" : ""}
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 bg-white/20 text-white px-3 py-1.5 rounded-full text-xs font-bold">
+              <CheckCircle size={13} />No Clashes
+            </div>
+          )}
+        </div>
+      </div>
 
-      <SubjectModal open={!!selectedFaculty} faculty={selectedFaculty} subjects={subjects} onClose={() => setSelectedFaculty(null)} onSave={handleSaveSubjects} saving={savingSubjects} />
+      {/* Day headers */}
+      <div className="grid grid-cols-5 border-b border-slate-200 bg-slate-50/80">
+        {DAYS.map((day, di) => {
+          const isToday = di === todayIdx;
+          const sessionCount = Object.values(grouped[day] ?? {}).flat().length;
+          return (
+            <div key={day} className={`flex items-center justify-center gap-2 py-3 px-2 border-r border-slate-200 last:border-r-0 ${isToday ? "bg-amber-50" : ""}`}>
+              {isToday ? <Sun size={15} className="text-amber-500 shrink-0" /> : <Moon size={15} className="text-slate-300 shrink-0" />}
+              <div className="text-center min-w-0">
+                <div className={`text-sm font-black ${isToday ? "text-amber-700" : "text-slate-700"}`}>{day}</div>
+                <div className="text-[10px] text-slate-400 font-medium">{sessionCount} session{sessionCount !== 1 ? "s" : ""}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Slot rows */}
+      <div className="overflow-x-auto">
+        <div style={{ minWidth: 900 }}>
+          {ALL_SLOTS.map(slot => (
+            <div
+  key={slot}
+  className="grid grid-cols-5 border-b border-slate-100 last:border-b-0"
+  style={{ height: (slot === BREAK_SLOT ? BREAK_H : SLOT_H) + 14 }}
+>
+              {DAYS.map(day => {
+                if (slot === BREAK_SLOT) {
+  return (
+    <div key={day} className="border-r border-slate-100 last:border-r-0 px-2 py-1.5 h-full">
+      <BreakCard />
     </div>
   );
 }
+
+                const sessions   = grouped[day]?.[slot] ?? [];
+                const src        = dragSourceRef.current;
+                const isDragging = src?.day === day && src?.slotNumber === slot && src?.division === division;
+                const hasClash   = clashSet.has(`${day}-${slot}`);
+                const isCurrent  = isCurrentSlot(day, slot);
+
+                const commonProps = {
+                  day, slotNumber: slot, division, isCurrent, hasClash,
+                  onEdit, onDelete, onDragStart,
+                  onDragOver: handleDragOver,
+                  onDrop: onDropComplete,
+                  isDragging, dragTarget,
+                };
+
+                return (
+                  <div key={day} className="border-r border-slate-100 last:border-r-0 px-2 py-1.5">
+                    {sessions.length === 0
+                      ? <EmptyCard day={day} slotNumber={slot} division={division} onAdd={onAdd} onDragOver={handleDragOver} onDrop={onDropComplete} dragTarget={dragTarget} />
+                      : sessions.length > 1
+                        ? <SplitCard sessions={sessions} {...commonProps} />
+                        : <SessionCard session={sessions[0]} {...commonProps} />
+                    }
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}, (p, n) =>
+  p.timetable   === n.timetable  &&
+  p.clashes     === n.clashes    &&
+  p.dragTarget  === n.dragTarget &&
+  p.currentTime === n.currentTime
+);
+
+// ─────────────────────────── Main Component ──────────────────────────────────
+
+const AdminTimetableComponent = () => {
+  const [timetable,    setTimetable]    = useState(null);
+  const [loading,      setLoading]      = useState(true);
+  const [loadingState, setLoadingState] = useState("loading");
+  const [saving,       setSaving]       = useState(false);
+  const [saveSuccess,  setSaveSuccess]  = useState(false);
+  const [generating,   setGenerating]   = useState(false);
+  const [currentTime,  setCurrentTime]  = useState(new Date());
+  const [error,        setError]        = useState(null);
+  const [unsaved,      setUnsaved]      = useState(false);
+  const [showClashes,  setShowClashes]  = useState(false);
+  const [sideAnimIdx,  setSideAnimIdx]  = useState(0);
+  const [showSideAnim, setShowSideAnim] = useState(true);
+
+  const [facultyList,  setFacultyList]  = useState([]);
+  const [roomsList,    setRoomsList]    = useState([]);
+  const [subjectsList, setSubjectsList] = useState([]);
+
+  const [modal, setModal] = useState({ open: false, mode: "add", session: null, day: null, slot: null, div: null });
+
+  const dragSourceRef = useRef(null);
+  const [dragTarget, setDragTarget] = useState(null);
+  const [toasts,     setToasts]     = useState([]);
+
+  const clashes = useMemo(() => (timetable ? detectClashes(timetable) : []), [timetable]);
+
+  const addToast = useCallback((message, type = "info") => {
+    const id = Date.now() + Math.random();
+    setToasts(p => [...p, { id, message, type }]);
+    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 4500);
+  }, []);
+
+  const fetchTimetable = useCallback(async () => {
+    try {
+      const [rA, rB] = await Promise.all([
+        fetch("http://localhost:5000/api/timetable?division=A", { headers: authHeaders() }),
+        fetch("http://localhost:5000/api/timetable?division=B", { headers: authHeaders() }),
+      ]);
+      const [dA, dB] = await Promise.all([rA.json(), rB.json()]);
+      if (dA.success && dB.success) {
+        const merged = {};
+        for (const day of DAYS) merged[day] = { A: dA.data[day]?.A ?? [], B: dB.data[day]?.B ?? [] };
+        setTimetable(merged);
+      } else setError("Failed to load timetable");
+    } catch (e) { setError(e.message); }
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    let maxTimer, minTimer, animCycle;
+
+    const init = async () => {
+      setLoadingState("loading");
+      setLoading(true);
+
+      animCycle = setInterval(() => {
+        if (!mounted) return;
+        setShowSideAnim(false);
+        setTimeout(() => {
+          if (!mounted) return;
+          setSideAnimIdx(p => p === 0 ? 1 : 0);
+          setShowSideAnim(true);
+        }, 400);
+      }, 2500);
+
+      maxTimer = setTimeout(() => {
+        if (mounted) { setLoadingState("error"); clearInterval(animCycle); }
+      }, 10000);
+
+      await fetchTimetable();
+
+      Promise.all([
+        fetch("http://localhost:5000/api/timetable/faculty/all",  { headers: authHeaders() }).then(r => r.json()).catch(() => null),
+        fetch("http://localhost:5000/api/timetable/rooms/all",    { headers: authHeaders() }).then(r => r.json()).catch(() => null),
+        fetch("http://localhost:5000/api/timetable/subjects/all", { headers: authHeaders() }).then(r => r.json()).catch(() => null),
+      ]).then(([f, r, s]) => {
+        if (f?.success) setFacultyList(f.data);
+        if (r?.success) setRoomsList(r.data);
+        if (s?.success) setSubjectsList(s.data);
+      });
+
+      minTimer = setTimeout(() => {
+        if (mounted) { clearTimeout(maxTimer); clearInterval(animCycle); setLoading(false); }
+      }, 3000);
+    };
+
+    init();
+    const tick = setInterval(() => { if (mounted) setCurrentTime(new Date()); }, 60000);
+    return () => {
+      mounted = false;
+      clearTimeout(maxTimer); clearTimeout(minTimer);
+      clearInterval(animCycle); clearInterval(tick);
+    };
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    if (!timetable || clashes.length > 0) return;
+    setSaving(true);
+    try {
+      const r = await fetch("http://localhost:5000/api/timetable/save", {
+        method: "PUT", headers: authHeaders(), body: JSON.stringify({ timetable }),
+      });
+      const d = await r.json();
+      if (d.success) {
+        setSaveSuccess(true); setUnsaved(false);
+        addToast("Timetable saved to database!", "success");
+        setTimeout(() => setSaveSuccess(false), 2500);
+      } else addToast(d.message ?? "Save failed", "error");
+    } catch (e) { addToast(e.message, "error"); } finally { setSaving(false); }
+  }, [timetable, clashes, addToast]);
+
+  const handleAutoGenerate = useCallback(async () => {
+    setGenerating(true);
+    try {
+      const r = await fetch("http://localhost:5000/api/timetable/generate", {
+        method: "POST", headers: authHeaders(), body: JSON.stringify({ semester: "even", year: 2026 }),
+      });
+      const d = await r.json();
+      if (d.success) { setTimetable(d.data); setUnsaved(true); addToast("Timetable generated successfully!", "success"); }
+      else addToast(d.message ?? "Auto-generate failed", "error");
+    } catch (e) { addToast(e.message, "error"); } finally { setGenerating(false); }
+  }, [addToast]);
+
+  const handleAdd    = useCallback((day, slot, div) => setModal({ open: true, mode: "add",  session: null,    day, slot, div }), []);
+  const handleEdit   = useCallback((session, day, slot, div) => setModal({ open: true, mode: "edit", session, day, slot, div }), []);
+
+  const handleDelete = useCallback((day, slot, div, session) => {
+    setTimetable(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      next[day][div] = next[day][div].filter(s =>
+        !(s.slot === slot && (s.id
+          ? String(s.id) === String(session.id)
+          : s.subject === session.subject && s.faculty === session.faculty))
+      );
+      return next;
+    });
+    setUnsaved(true);
+    addToast("Lecture removed", "warning");
+  }, [addToast]);
+
+  const handleModalSave = useCallback((form, moveTarget, shouldMove, warn) => {
+    if (warn) addToast(warn, "warning");
+    const { day, slot, div, mode, session } = modal;
+    setTimetable(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      const entry = {
+        ...form,
+        slot: shouldMove ? moveTarget.slot : slot,
+        day:  shouldMove ? moveTarget.day  : day,
+        division: div, subject: form.subject_name, faculty: form.faculty_name, room: form.room_name,
+      };
+      if (mode === "edit") {
+        next[day][div] = next[day][div].filter(s =>
+          session?.id
+            ? String(s.id) !== String(session.id)
+            : !(s.slot === slot && (s.subject_id ?? s.subject) === (session?.subject_id ?? session?.subject))
+        );
+        const td = shouldMove ? moveTarget.day : day;
+        if (!next[td])      next[td]      = {};
+        if (!next[td][div]) next[td][div] = [];
+        next[td][div].push(entry);
+      } else {
+        if (!next[day])      next[day]      = {};
+        if (!next[day][div]) next[day][div] = [];
+        next[day][div].push(entry);
+      }
+      return next;
+    });
+    setUnsaved(true);
+    setModal(m => ({ ...m, open: false }));
+    addToast(mode === "add" ? "Lecture added!" : "Lecture updated!", "success");
+  }, [modal, addToast]);
+
+  const handleDragStart    = useCallback(source => { dragSourceRef.current = source; }, []);
+
+  const handleDropComplete = useCallback(target => {
+    const src = dragSourceRef.current;
+    if (!src || !target) return;
+    if (src.day === target.day && src.slotNumber === target.slotNumber && src.division === target.division) {
+      dragSourceRef.current = null; setDragTarget(null); return;
+    }
+    if (target.slotNumber === BREAK_SLOT) {
+      addToast("Cannot drop onto the break slot", "error");
+      dragSourceRef.current = null; setDragTarget(null); return;
+    }
+    setTimetable(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      const srcList   = next?.[src.day]?.[src.division] ?? [];
+      const tgtList   = next?.[target.day]?.[target.division] ?? [];
+      const srcAtSlot = srcList.filter(s => s.slot === src.slotNumber    && s.type !== "break");
+      const tgtAtSlot = tgtList.filter(s => s.slot === target.slotNumber && s.type !== "break");
+
+      const strip = (arr, sess) => arr.filter(s =>
+        !((sess.id && String(s.id) === String(sess.id)) ||
+          (!sess.id && s.slot === sess.slot && (s.subject_id ?? s.subject) === (sess.subject_id ?? sess.subject)))
+      );
+
+      if (tgtAtSlot.length === 0) {
+        next[src.day][src.division] = strip(srcList, { ...src.session, slot: src.slotNumber });
+        if (!next[target.day]) next[target.day] = {};
+        if (!next[target.day][target.division]) next[target.day][target.division] = [];
+        next[target.day][target.division].push({ ...src.session, slot: target.slotNumber, day: target.day, division: target.division });
+        addToast(`Moved to ${target.day} Slot ${target.slotNumber}`, "success");
+      } else if (tgtAtSlot.length === 1 && srcAtSlot.length === 1) {
+        const tgt = tgtAtSlot[0];
+        next[src.day][src.division]       = strip(srcList, { ...src.session, slot: src.slotNumber });
+        next[target.day][target.division] = strip(tgtList, { ...tgt, slot: target.slotNumber });
+        next[src.day][src.division].push({ ...tgt, slot: src.slotNumber, day: src.day, division: src.division });
+        next[target.day][target.division].push({ ...src.session, slot: target.slotNumber, day: target.day, division: target.division });
+        addToast("Sessions swapped!", "success");
+      } else {
+        addToast("Cannot swap split sessions — edit them individually", "warning");
+        dragSourceRef.current = null; setDragTarget(null); return prev;
+      }
+      return next;
+    });
+    setUnsaved(true); dragSourceRef.current = null; setDragTarget(null);
+  }, [addToast]);
+
+  // ── Loading / Error screens ───────────────────────────────────────────────
+
+  if (loading || loadingState === "error") {
+    return (
+      <div className="w-full bg-white rounded-2xl flex flex-col items-center justify-center overflow-hidden px-4 py-16 min-h-[500px]">
+        <div className="flex flex-col lg:flex-row items-center justify-center gap-12">
+          <motion.div
+            initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.8 }}
+            className="w-72 h-72"
+          >
+            <AnimatePresence mode="wait">
+              {loadingState === "loading" ? (
+                <motion.div key="main-loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full h-full">
+                  <Lottie animationData={mainAnimation} loop className="w-full h-full" />
+                </motion.div>
+              ) : (
+                <motion.div key="main-error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full h-full">
+                  <Lottie animationData={errorAnimation} loop className="w-full h-full" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+
+          {loadingState === "loading" && (
+            <motion.div initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.8 }} className="relative w-56 h-56">
+              <AnimatePresence mode="wait">
+                {showSideAnim && (
+                  <motion.div
+                    key={sideAnimIdx}
+                    initial={{ opacity: 0, x: 40, scale: 0.9 }}
+                    animate={{ opacity: 1, x: 0,  scale: 1   }}
+                    exit  ={{ opacity: 0, x: -40, scale: 0.9 }}
+                    transition={{ duration: 0.4 }}
+                    className="absolute inset-0"
+                  >
+                    <Lottie animationData={sideAnimIdx === 0 ? sideAnimation1 : sideAnimation2} loop className="w-full h-full" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </div>
+        <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }} className="mt-8 text-center">
+          <h2 className="text-2xl font-bold text-slate-700 mb-2">
+            {loadingState === "loading" ? "Loading Timetable Editor" : "Taking Too Long?"}
+          </h2>
+          <p className="text-slate-400 text-sm">
+            {loadingState === "loading" ? "Fetching both divisions for admin view…" : "We're having trouble connecting. Please refresh."}
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-full rounded-2xl flex flex-col items-center justify-center px-4 py-16 min-h-[400px]">
+        <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} className="w-56 h-56">
+          <Lottie animationData={errorAnimation} loop className="w-full h-full" />
+        </motion.div>
+        <h3 className="text-xl font-bold text-slate-700 mt-6 mb-2">Oops! Something went wrong</h3>
+        <p className="text-slate-400 text-sm mb-6">{error}</p>
+        <button onClick={fetchTimetable} className="px-6 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-semibold text-sm shadow-lg">
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const gridProps = {
+    timetable, clashes, currentTime,
+    onAdd: handleAdd, onEdit: handleEdit, onDelete: handleDelete,
+    dragSourceRef, dragTarget, setDragTarget,
+    onDropComplete: handleDropComplete, onDragStart: handleDragStart,
+  };
+
+  return (
+    <div className="w-full bg-gradient-to-br from-slate-50 via-violet-50/20 to-indigo-50/20 px-5 py-5 space-y-5">
+      <Toast toasts={toasts} onRemove={id => setToasts(p => p.filter(t => t.id !== id))} />
+
+      {/* ── Header ── */}
+      <motion.div
+        initial={{ y: -20, opacity: 1 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.5, type: "spring" }}
+        className="bg-white/90 backdrop-blur-xl rounded-2xl px-6 py-5 shadow-xl border border-white/60"
+      >
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="p-3 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl shadow-lg">
+              <Shield className="text-white" size={26} />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent leading-none">
+                Admin Timetable
+              </h1>
+              <p className="text-slate-500 flex items-center gap-1.5 text-sm mt-1">
+                <Sparkles size={13} className="text-amber-500" />
+                Computer Engineering · Even Semester 2026 · Both Divisions
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {clashes.length > 0 ? (
+              <motion.button
+                onClick={() => setShowClashes(p => !p)}
+                animate={{ scale: [1, 1.03, 1] }} transition={{ duration: 2, repeat: Infinity }}
+                className="flex items-center gap-2 px-4 py-2.5 bg-red-50 border border-red-200 text-red-600 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors shadow-sm"
+              >
+                <AlertTriangle size={15} />{clashes.length} Clash{clashes.length > 1 ? "es" : ""}
+              </motion.button>
+            ) : (
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-600 rounded-xl font-bold text-sm shadow-sm">
+                <CheckCircle size={15} />No Clashes
+              </div>
+            )}
+
+            <motion.button
+              whileHover={{ scale: generating ? 1 : 1.03 }} whileTap={{ scale: generating ? 1 : 0.97 }}
+              onClick={handleAutoGenerate} disabled={generating}
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-shadow disabled:opacity-75"
+            >
+              {generating ? <><RefreshCw size={15} className="animate-spin" />Generating…</> : <><Zap size={15} />Auto Generate</>}
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+              onClick={handleSave} disabled={saving || !unsaved || clashes.length > 0}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg transition-all ${
+                saveSuccess                           ? "bg-emerald-500 text-white"
+                : unsaved && clashes.length === 0    ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:shadow-xl"
+                :                                      "bg-slate-200 text-slate-400 cursor-not-allowed"
+              }`}
+            >
+              {saving
+                ? <><RefreshCw size={15} className="animate-spin" />Saving…</>
+                : saveSuccess
+                  ? <><CheckCircle size={15} />Saved!</>
+                  : <><Save size={15} />Save Changes</>}
+            </motion.button>
+          </div>
+        </div>
+
+        <AnimatePresence>
+          {unsaved && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden mt-3"
+            >
+              <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium ${
+                clashes.length > 0
+                  ? "bg-red-50 border border-red-200 text-red-600"
+                  : "bg-amber-50 border border-amber-200 text-amber-700"
+              }`}>
+                {clashes.length > 0
+                  ? <><AlertTriangle size={14} />Resolve {clashes.length} clash{clashes.length > 1 ? "es" : ""} before saving</>
+                  : <><Edit3 size={14} />You have unsaved changes — click Save Changes to push to database</>}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+
+      {/* ── Clashes panel ── */}
+      <AnimatePresence>
+        {showClashes && clashes.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-red-200 overflow-hidden"
+          >
+            <div className="bg-gradient-to-r from-red-500 to-rose-500 px-5 py-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-white font-bold text-sm">
+                <AlertTriangle size={16} />Schedule Clashes ({clashes.length})
+              </div>
+              <button onClick={() => setShowClashes(false)} className="text-white/70 hover:text-white transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {clashes.map((c, i) => (
+                <div key={c.key ?? i} className="flex items-start gap-3 p-3 bg-red-50 rounded-xl border border-red-100">
+                  <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${c.type === "room" ? "bg-orange-500" : "bg-red-500"}`} />
+                  <div>
+                    <p className="text-[10px] font-black text-red-600 uppercase tracking-wide">{c.type} clash</p>
+                    <p className="text-sm text-slate-700 mt-0.5">{c.message}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Grids ── */}
+      <div className="relative space-y-5">
+        <AnimatePresence>
+          {generating && (
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 z-20 bg-white/85 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center gap-6"
+            >
+              <div className="flex items-center gap-8">
+                <div className="w-40 h-40">
+                  <Lottie animationData={mainAnimation} loop className="w-full h-full" />
+                </div>
+                <div className="relative w-32 h-32">
+                  <AnimatePresence mode="wait">
+                    {showSideAnim && (
+                      <motion.div
+                        key={sideAnimIdx}
+                        initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
+                        className="absolute inset-0"
+                      >
+                        <Lottie animationData={sideAnimIdx === 0 ? sideAnimation1 : sideAnimation2} loop className="w-full h-full" />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+              <motion.div animate={{ opacity: [0.6, 1, 0.6] }} transition={{ duration: 2, repeat: Infinity }} className="text-center">
+                <p className="text-xl font-black bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
+                  Auto-Generating Timetable
+                </p>
+                <p className="text-sm text-slate-400 mt-1">Optimising schedules for both divisions…</p>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }}>
+          <DivisionGrid division="A" {...gridProps} />
+        </motion.div>
+        <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }}>
+          <DivisionGrid division="B" {...gridProps} />
+        </motion.div>
+      </div>
+
+      {/* ── Legend ── */}
+      <motion.div
+        initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.5 }}
+        className="bg-white/90 backdrop-blur-xl rounded-xl px-5 py-3.5 shadow-lg border border-white/60"
+      >
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-5 flex-wrap">
+            {[
+              { color: "#3b82f6", label: "Theory" },
+              { color: "#22c55e", label: "Lab"    },
+              { color: "#ef4444", label: "Test"   },
+              { color: "#f59e0b", label: "Break"  },
+            ].map(x => (
+              <div key={x.label} className="flex items-center gap-2">
+                <div style={{ background: x.color }} className="w-3 h-3 rounded-full" />
+                <span className="text-sm text-slate-600 font-medium">{x.label}</span>
+              </div>
+            ))}
+            <div className="flex items-center gap-2">
+              <Layers size={14} className="text-indigo-500" />
+              <span className="text-sm text-slate-600 font-medium">Split Session</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-slate-400 font-medium">
+            <GripVertical size={14} className="text-slate-300" />
+            Drag to move · Drop on empty to place · Drop on session to swap
+          </div>
+        </div>
+      </motion.div>
+
+      {/* ── Modal ── */}
+      <SessionModal
+        isOpen={modal.open}
+        session={modal.session}
+        day={modal.day}
+        slotNumber={modal.slot}
+        division={modal.div}
+        mode={modal.mode}
+        onClose={() => setModal(m => ({ ...m, open: false }))}
+        onSave={handleModalSave}
+        facultyList={facultyList}
+        roomsList={roomsList}
+        subjectsList={subjectsList}
+        timetable={timetable}
+      />
+    </div>
+  );
+};
+
+export default AdminTimetableComponent;

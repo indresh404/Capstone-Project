@@ -183,39 +183,32 @@ const StatsCard = memo(({ label, value, color, icon }) => {
 
 const LoadingScreen = () => (
   <div style={{
-    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-    minHeight: 420, background: "#fff", borderRadius: 20,
-    border: "1.5px solid #e2e8f0", padding: "48px 32px",
+    position: "fixed", inset: 0, background: "rgba(255,255,255,0.85)",
+    backdropFilter: "blur(6px)", zIndex: 50,
+    display: "flex", alignItems: "center", justifyContent: "center",
   }}>
-    <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      {/* Side animations */}
-      <div style={{ position: "absolute", left: -72, top: "50%", transform: "translateY(-50%)", width: 80, height: 80, opacity: 0.5 }}>
-        <Lottie animationData={sideAnimation1} loop />
-      </div>
-      <div style={{ position: "absolute", right: -72, top: "50%", transform: "translateY(-50%)", width: 80, height: 80, opacity: 0.5 }}>
-        <Lottie animationData={sideAnimation2} loop />
-      </div>
-      {/* Main animation — bigger */}
-      <div style={{ width: 280, height: 280 }}>
+    <div style={{ position: "relative", textAlign: "center" }}>
+      <div style={{ width: 200, height: 200 }}>
         <Lottie animationData={mainAnimation} loop />
       </div>
+      <div style={{ position: "absolute", top: -24, left: -24, width: 64, height: 64, opacity: 0.45 }}>
+        <Lottie animationData={sideAnimation1} loop />
+      </div>
+      <div style={{ position: "absolute", bottom: -24, right: -24, width: 64, height: 64, opacity: 0.45 }}>
+        <Lottie animationData={sideAnimation2} loop />
+      </div>
+      <p style={{ marginTop: 8, fontSize: 13, color: "#64748b", fontWeight: 500 }}>Loading faculty data…</p>
     </div>
-    <p style={{ marginTop: 16, fontSize: 14, color: "#64748b", fontWeight: 600, letterSpacing: 0.2 }}>Loading faculty data…</p>
-    <p style={{ margin: "4px 0 0", fontSize: 12, color: "#cbd5e1" }}>Please wait a moment</p>
   </div>
 );
 
 const ErrorScreen = ({ error, onRetry }) => (
-  <div style={{
-    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-    minHeight: 420, background: "#fff", borderRadius: 20,
-    border: "1.5px solid #fecdd3", padding: "48px 32px",
-  }}>
-    <div style={{ width: 200, height: 200 }}>
+  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 400, padding: 32 }}>
+    <div style={{ width: 160, height: 160 }}>
       <Lottie animationData={errorAnimation} loop />
     </div>
-    <p style={{ fontWeight: 700, color: "#1e293b", marginBottom: 6, fontSize: 15 }}>Failed to load data</p>
-    <p style={{ fontSize: 13, color: "#94a3b8", marginBottom: 24, textAlign: "center", maxWidth: 380 }}>{error}</p>
+    <p style={{ fontWeight: 600, color: "#1e293b", marginBottom: 4 }}>Failed to load data</p>
+    <p style={{ fontSize: 13, color: "#94a3b8", marginBottom: 20, textAlign: "center", maxWidth: 380 }}>{error}</p>
     <button onClick={onRetry} style={btnPrimary}>Try Again</button>
   </div>
 );
@@ -682,32 +675,8 @@ export default function FacultyComponent() {
     return { present, absent, leave, unmarked: faculty.length - present - absent - leave };
   }, [attendance, faculty]);
 
-  if (loading) return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc", padding: "24px 24px 48px", fontFamily: "'DM Sans', 'Segoe UI', sans-serif" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, background: "linear-gradient(135deg, #6366f1, #4f46e5)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            Faculty Management
-          </h1>
-          <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8", fontWeight: 500 }}>Loading…</p>
-        </div>
-      </div>
-      <LoadingScreen />
-    </div>
-  );
-
-  if (error) return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc", padding: "24px 24px 48px", fontFamily: "'DM Sans', 'Segoe UI', sans-serif" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, background: "linear-gradient(135deg, #6366f1, #4f46e5)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            Faculty Management
-          </h1>
-        </div>
-      </div>
-      <ErrorScreen error={error} onRetry={fetchData} />
-    </div>
-  );
+  if (loading) return <LoadingScreen />;
+  if (error) return <ErrorScreen error={error} onRetry={fetchData} />;
 
   // ── Shared input style ────────────────────────────────────────────────────
   const inputStyle = {
@@ -886,9 +855,8 @@ export default function FacultyComponent() {
 
           {/* List */}
           {attendanceLoading ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 0", background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0" }}>
-              <div style={{ width: 180, height: 180 }}><Lottie animationData={sideAnimation1} loop /></div>
-              <p style={{ margin: "8px 0 0", fontSize: 13, color: "#94a3b8", fontWeight: 500 }}>Loading attendance…</p>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "64px 0", background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0" }}>
+              <div style={{ width: 100, height: 100 }}><Lottie animationData={sideAnimation1} loop /></div>
             </div>
           ) : (
             <div style={{ background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
