@@ -1,8 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Users, BookMarked,
   CalendarRange, BarChart2, Settings, Bell,
+  Search, LogOut, ChevronRight, Menu, X,
+  Maximize, Command, Sparkles, AlertCircle, ArrowUpRight
 } from "lucide-react";
 
 // Import admin components
@@ -14,66 +16,109 @@ import AnalyticsComponent from "../components/admin/AnalyticsComponent";
 import SettingsComponent from "../components/admin/SettingsComponent";
 import LogoPng from "../assets/Logo.png";
 
+// Safety "Coming Soon" Component
+const ComingSoon = ({ activeTab }) => (
+  <motion.div
+    initial={{ opacity: 0, scale: 0.95 }}
+    animate={{ opacity: 1, scale: 1 }}
+    className="h-full min-h-[500px] flex flex-col items-center justify-center bg-white/40 backdrop-blur-xl border border-white p-12 rounded-[3.5rem] shadow-sm text-center gap-6"
+  >
+    <div className="w-24 h-24 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-[2rem] flex items-center justify-center text-indigo-600 animate-pulse">
+      <AlertCircle size={48} />
+    </div>
+    <div>
+      <h2 className="text-3xl font-black text-slate-800 tracking-tighter mb-2">Feature Under Optimization</h2>
+      <p className="text-slate-500 font-bold max-w-sm">
+        We're currently refining the <span className="text-indigo-600 uppercase">'{activeTab}'</span> module for a more premium scheduling experience.
+      </p>
+    </div>
+    <div className="px-8 py-4 bg-indigo-600 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-100 flex items-center gap-3">
+      Coming Soon <Sparkles size={16} className="text-yellow-300" />
+    </div>
+  </motion.div>
+);
+
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("home");
-  const [showNotifications, setShowNotifications] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-
-  const adminData = {
-    name: "Admin Coordinator",
+  const [isMobile, setIsMobile] = useState(false);
+  const [adminData, setAdminData] = useState({
+    name: "Admin",
     role: "Super Admin",
     avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Admin&backgroundColor=c0aede",
-    notifications: 4,
-  };
+  });
+
+  // Fetch real user data from localStorage
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        setAdminData({
+          name: user.name || "Admin",
+          role: user.role || "Super Admin",
+          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}&backgroundColor=c0aede`
+        });
+      } catch (e) {
+        console.error("Failed to parse user data", e);
+      }
+    }
+  }, []);
+
+  // Handle responsive behavior
+  useEffect(() => {
+    const checkScreenSize = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (mobile) setIsExpanded(false);
+    };
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
 
   const menuItems = [
-    { key: "home",             label: "Home",          icon: <LayoutDashboard size={22} /> },
-    { key: "faculty",          label: "Faculty",       icon: <Users size={22} /> },
-    { key: "courses",          label: "Courses",       icon: <BookMarked size={22} /> },
-    { key: "timetable-editor", label: "TT Editor",     icon: <CalendarRange size={22} /> },
-    { key: "analytics",        label: "Analytics",     icon: <BarChart2 size={22} /> },
-    { key: "settings",         label: "Settings",      icon: <Settings size={22} /> },
+    { key: "home", label: "Dashboard", icon: <LayoutDashboard size={24} /> },
+    { key: "faculty", label: "Faculty", icon: <Users size={24} /> },
+    { key: "courses", label: "Academic", icon: <BookMarked size={24} /> },
+    { key: "timetable-editor", label: "Scheduler", icon: <CalendarRange size={24} /> },
+    { key: "analytics", label: "Analytics", icon: <BarChart2 size={24} /> },
+    { key: "settings", label: "Config", icon: <Settings size={24} /> },
   ];
 
   const sidebarVariants = {
-    collapsed: { width: "6rem", transition: { duration: 0.5, ease: [0.4, 0, 0.2, 1] } },
-    expanded:  { width: "16rem", transition: { duration: 0.5, ease: [0.4, 0, 0.2, 1] } },
+    collapsed: { width: "6rem", transition: { type: "spring", stiffness: 300, damping: 30 } },
+    expanded: { width: "16rem", transition: { type: "spring", stiffness: 300, damping: 30 } },
   };
 
   const labelVariants = {
-    hidden:  { opacity: 0, x: -20, filter: "blur(4px)" },
+    hidden: { opacity: 0, x: -10 },
     visible: (i) => ({
-      opacity: 1, x: 0, filter: "blur(0px)",
-      transition: { delay: i * 0.1, duration: 0.4, ease: "easeOut" },
+      opacity: 1,
+      x: 0,
+      transition: { delay: i * 0.05, duration: 0.2, ease: "easeOut" }
     }),
-    exit: { opacity: 0, x: -10, transition: { duration: 0.2 } },
+    exit: { opacity: 0, x: -10, transition: { duration: 0.1 } }
   };
 
   const renderComponent = () => {
     switch (activeTab) {
-      case "home":             return <HomeComponent setActiveTab={setActiveTab} />;
-      case "faculty":          return <FacultyComponent />;
-      case "courses":          return <CoursesComponent />;
+      case "home": return <HomeComponent setActiveTab={setActiveTab} />;
+      case "faculty": return <FacultyComponent />;
+      case "courses": return <CoursesComponent />;
       case "timetable-editor": return <TimetableEditorComponent />;
-      case "analytics":        return <AnalyticsComponent />;
-      case "settings":         return <SettingsComponent />;
-      default:                 return <HomeComponent setActiveTab={setActiveTab} />;
+      case "analytics": return <AnalyticsComponent />;
+      case "settings": return <SettingsComponent />;
+      default: return <ComingSoon activeTab={activeTab} />;
     }
   };
 
   const activeItem = menuItems.find(m => m.key === activeTab);
 
-  const notifItems = [
-    { msg: "Conflict in EC Dept timetable", time: "5 min ago", type: "warning" },
-    { msg: "Dr. Priya's schedule updated", time: "30 min ago", type: "info" },
-    { msg: "New faculty added: Prof. Kiran", time: "1 hr ago", type: "success" },
-    { msg: "Timetable export completed", time: "2 hr ago", type: "success" },
-  ];
-
   return (
-    <div className="h-screen flex bg-gradient-to-r from-[#EEF0FF] via-[#F8F4FF] to-[#FFFFFF] text-slate-700 overflow-hidden font-sans p-5">
+    <div className="h-screen flex bg-gradient-to-r from-[#EEF0FF] via-[#F8F4FF] to-[#FFFFFF] text-slate-700 overflow-hidden font-sans selection:bg-indigo-100 p-5">
 
-      {/* SIDEBAR */}
+      {/* SIDEBAR - Responsive Scroll Fix */}
       <motion.aside
         initial={false}
         animate={isExpanded ? "expanded" : "collapsed"}
@@ -165,89 +210,73 @@ const AdminDashboard = () => {
         </div>
       </motion.aside>
 
-      {/* MAIN CONTENT */}
-      <main className="flex-1 flex flex-col px-12 pt-6 overflow-hidden">
-
-        {/* Header */}
-        <header className="flex items-center justify-between mb-5">
-          <div>
-            <h1 className="text-4xl font-black text-slate-900 tracking-tight">
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-indigo-600">Schedula</span>{" "}
-              <span className="text-slate-300 font-light">|</span>{" "}
-              <span className="text-2xl font-black text-slate-700">{activeItem?.label}</span>
-            </h1>
-            <p className="text-slate-400 font-medium mt-1 text-sm">
-              Admin Panel · {new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-            </p>
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col min-w-0 h-full relative z-10 px-8 pt-2">
+        <header className="flex items-center justify-between gap-6 mb-8">
+          <div className="flex items-center gap-6">
+            <div className="hidden sm:block">
+              <h2 className="text-3xl font-black text-slate-800 tracking-tighter flex items-center gap-2">
+                {activeItem?.label} <Sparkles size={20} className="text-indigo-400" />
+              </h2>
+              <p className="text-sm font-black text-slate-400 uppercase tracking-widest">{new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-5">
-            {/* Notifications */}
-            <div className="relative">
-              <button
-                className="relative p-2.5 bg-white/80 hover:bg-white rounded-xl transition-all shadow-sm group"
-                onClick={() => setShowNotifications(!showNotifications)}
-              >
-                <Bell size={20} className="text-slate-500 group-hover:text-violet-600 transition-colors" />
-                {adminData.notifications > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-black shadow-lg animate-pulse">
-                    {adminData.notifications}
-                  </span>
-                )}
-              </button>
-
-              <AnimatePresence>
-                {showNotifications && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                    transition={{ duration: 0.18 }}
-                    className="absolute right-0 mt-3 w-72 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-50"
-                  >
-                    <div className="px-4 py-2.5 border-b border-slate-100">
-                      <p className="text-sm font-black text-slate-800">Notifications</p>
-                    </div>
-                    {notifItems.map((n, i) => (
-                      <div key={i} className="px-4 py-3 hover:bg-slate-50 cursor-pointer transition-colors">
-                        <p className="text-xs font-bold text-slate-800">{n.msg}</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{n.time}</p>
-                      </div>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+          <div className="flex items-center gap-6">
+            <div className="relative group hidden lg:block">
+              <Search size={20} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+              <input type="text" placeholder="Global system search..." className="pl-14 pr-6 py-4 bg-white border border-indigo-100/50 rounded-[1.5rem] outline-none focus:ring-4 focus:ring-indigo-100/50 transition-all text-sm font-bold shadow-sm w-80" />
             </div>
 
-            {/* Admin Profile */}
-            <div className="flex items-center gap-3 bg-white/90 backdrop-blur-sm pl-3 pr-5 py-2 rounded-2xl shadow-md border border-white/50 hover:shadow-lg transition-all cursor-pointer">
-              <div className="w-10 h-10 rounded-xl overflow-hidden bg-gradient-to-br from-violet-400 to-indigo-500 p-0.5">
-                <img src={adminData.avatar} alt={adminData.name} className="w-full h-full rounded-xl bg-white" />
+            <button className="p-4 bg-white rounded-2xl shadow-sm text-slate-400 hover:text-indigo-600 transition-all relative group">
+              <Bell size={24} />
+              <div className="absolute top-4 right-4 w-2 h-2 bg-rose-500 rounded-full border-2 border-white group-hover:animate-ping" />
+            </button>
+
+            <div className="hidden sm:flex items-center gap-4 bg-white p-2.5 pr-6 rounded-[1.8rem] shadow-sm border border-indigo-100/30 group hover:shadow-lg transition-all cursor-pointer">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-black shadow-lg shadow-indigo-200">
+                {adminData.name.charAt(0)}
               </div>
               <div>
-                <p className="font-black text-sm text-slate-800">{adminData.name}</p>
-                <p className="text-xs text-violet-500 font-bold">{adminData.role}</p>
+                <p className="text-sm font-black text-slate-800 leading-none lowercase truncate max-w-[100px]">{adminData.name}</p>
+                <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mt-1">Admin Panel</p>
               </div>
             </div>
           </div>
         </header>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto pr-4 custom-scrollbar">
-          <AnimatePresence mode="wait">
+        {/* Dynamic Content Container - Safety Refinement */}
+        <section className="flex-1 overflow-y-auto pb-10 custom-scrollbar pr-2 min-h-0">
+          <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={activeTab}
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 1, y: 0 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.25 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              className="h-full"
             >
               {renderComponent()}
             </motion.div>
           </AnimatePresence>
-        </div>
+        </section>
       </main>
 
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 5px;
+          height: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(0,0,0,0.1);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(0,0,0,0.2);
+        }
+      `}</style>
     </div>
   );
 };

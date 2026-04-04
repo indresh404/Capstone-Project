@@ -8,15 +8,17 @@ const getSubjectHoursAnalytics = async (req, res) => {
         s.id,
         s.code,
         s.name,
-        s.lectures_per_week as required_hours,
-        COALESCE(COUNT(t.id), 0) as scheduled_hours,
+        s.type,
+        s.lectures_per_week AS required_hours,
+        COUNT(t.id) FILTER (WHERE t.status = 'scheduled' OR t.status = 'completed') AS scheduled_hours,
+        COUNT(t.id) FILTER (WHERE t.status = 'completed') AS completed_hours,
         ROUND(
-          COALESCE(COUNT(t.id), 0)::DECIMAL / NULLIF(s.lectures_per_week, 0) * 100, 
+          (COUNT(t.id) FILTER (WHERE t.status = 'scheduled' OR t.status = 'completed')::DECIMAL / NULLIF(s.lectures_per_week, 0)) * 100, 
           2
-        ) as completion_percentage
+        ) AS completion_percentage
       FROM subjects s
       LEFT JOIN timetable t ON t.subject_id = s.id
-      GROUP BY s.id, s.code, s.name, s.lectures_per_week
+      GROUP BY s.id, s.code, s.name, s.type, s.lectures_per_week
       ORDER BY s.name
     `;
     
@@ -44,14 +46,11 @@ const getFacultyWorkloadAnalytics = async (req, res) => {
         u.id,
         u.name,
         u.college_id,
-        COALESCE(COUNT(DISTINCT fs.subject_id), 0) as subjects_count,
-        COALESCE(COUNT(t.id), 0) as scheduled_hours,
+        (SELECT COUNT(*) FROM faculty_subjects fs WHERE fs.faculty_id = u.id) as subjects_count,
+        (SELECT COUNT(*) FROM timetable t WHERE t.faculty_id = u.id) as scheduled_hours,
         20 as max_hours
       FROM users u
-      LEFT JOIN faculty_subjects fs ON fs.faculty_id = u.id
-      LEFT JOIN timetable t ON t.faculty_id = u.id
       WHERE u.role = 'faculty'
-      GROUP BY u.id, u.name, u.college_id
       ORDER BY u.name
     `;
     
@@ -160,6 +159,11 @@ const getWeeklyScheduleDistribution = async (req, res) => {
 // Get overall analytics summary
 const getAnalyticsSummary = async (req, res) => {
   try {
+    // Get total faculty count
+    const facultyCountResult = await pool.query(`
+      SELECT COUNT(*) as total_faculty FROM users WHERE role = 'faculty'
+    `);
+
     // Get average faculty load
     const avgLoadResult = await pool.query(`
       SELECT 
@@ -215,6 +219,7 @@ const getAnalyticsSummary = async (req, res) => {
     res.json({
       success: true,
       data: {
+        total_faculty: parseInt(facultyCountResult.rows[0]?.total_faculty || 0),
         avg_faculty_load: parseFloat(avgLoadResult.rows[0]?.avg_load || 0),
         subject_coverage: parseFloat(coverageResult.rows[0]?.coverage_percentage || 0),
         covered_subjects: coverageResult.rows[0]?.covered_subjects || 0,

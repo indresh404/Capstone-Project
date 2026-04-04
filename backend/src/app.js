@@ -6,6 +6,7 @@ const authRoutes = require("./routes/auth.routes");
 const timetableRoutes = require("./routes/timetable.routes");
 const facultyRoutes = require("./routes/faculty.routes");
 const analyticsRoutes = require('./routes/analytics.routes');
+const coursesRoutes = require("./routes/courses.routes");
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/timetable", timetableRoutes);
 app.use("/api/faculty", facultyRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use("/api/courses", coursesRoutes);
 
 // Test route
 app.get("/api/test", (req, res) => {

@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { CheckCircle, XCircle, Clock, Users, Search, Filter } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Users, Search, Filter, Coffee } from "lucide-react";
 
 const AttendanceComponent = () => {
   const [selectedDate, setSelectedDate] = useState("Today");
   const [searchTerm, setSearchTerm] = useState("");
 
-  const courses = [
+  const [courses, setCourses] = useState([
     { 
       subject: "Data Structures", 
       code: "CS301", 
@@ -39,13 +39,24 @@ const AttendanceComponent = () => {
       time: "2:00 PM",
       room: "Room 105"
     },
-  ];
+  ]);
+
+  const handleMarkAll = (courseCode, type) => {
+    setCourses(prev => prev.map(c => {
+      if (c.code === courseCode) {
+        if (type === 'present') return { ...c, present: c.students };
+        if (type === 'absent') return { ...c, present: 0 };
+        if (type === 'leave') return { ...c, present: Math.floor(c.students * 0.9) }; // Simulated leave logic
+      }
+      return c;
+    }));
+  };
 
   const attendanceStats = {
-    total: 160,
-    present: 149,
-    absent: 11,
-    percentage: 93
+    total: courses.reduce((acc, c) => acc + c.students, 0),
+    present: courses.reduce((acc, c) => acc + c.present, 0),
+    absent: courses.reduce((acc, c) => acc + (c.students - c.present), 0),
+    get percentage() { return Math.round((this.present / this.total) * 100) || 0 }
   };
 
   return (
@@ -145,12 +156,10 @@ const AttendanceComponent = () => {
 
       {/* Courses List */}
       <div className="space-y-4">
-        {courses.map((course, index) => (
+        {courses.filter(c => c.subject.toLowerCase().includes(searchTerm.toLowerCase())).map((course, index) => (
           <motion.div
             key={course.code}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
+            initial={{ opacity: 1 }}
             className="bg-white rounded-xl p-6 shadow-lg border border-slate-100 hover:shadow-xl transition-all"
           >
             <div className="flex items-center justify-between mb-4">
@@ -163,19 +172,31 @@ const AttendanceComponent = () => {
 
             {/* Progress Bar */}
             <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-4">
-              <div 
-                className="h-full bg-green-500 rounded-full"
-                style={{ width: `${(course.present / course.students) * 100}%` }}
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${(course.present / course.students) * 100}%` }}
+                className={`h-full rounded-full ${course.present/course.students > 0.8 ? 'bg-green-500' : 'bg-amber-500'}`}
               />
             </div>
 
             <div className="flex justify-end gap-3">
-              <button className="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 transition-colors flex items-center gap-2">
-                <CheckCircle size={16} />
-                Mark All Present
+              <button 
+                onClick={() => handleMarkAll(course.code, 'present')}
+                className="px-4 py-2 bg-green-50/50 text-green-700 border border-green-200 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-green-600 hover:text-white transition-all flex items-center gap-2"
+              >
+                <CheckCircle size={14} /> Mark All Present
               </button>
-              <button className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors">
-                Take Attendance
+              <button 
+                onClick={() => handleMarkAll(course.code, 'leave')}
+                className="px-4 py-2 bg-amber-50/50 text-amber-700 border border-amber-200 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-amber-600 hover:text-white transition-all flex items-center gap-2"
+              >
+                <Coffee size={14} /> Apply Bulk Leave
+              </button>
+              <button 
+                onClick={() => handleMarkAll(course.code, 'absent')}
+                className="px-4 py-2 bg-red-50/50 text-red-700 border border-red-200 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all flex items-center gap-2"
+              >
+                <XCircle size={14} /> Mark All Absent
               </button>
             </div>
           </motion.div>

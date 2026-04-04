@@ -15,8 +15,8 @@ router.get('/test', (req, res) => {
 });
 
 // Analytics routes (temporarily without auth for testing)
-router.get('/subjects', getSubjectHoursAnalytics);
-router.get('/faculty', getFacultyWorkloadAnalytics);
+router.get('/subject-progress', getSubjectHoursAnalytics);
+router.get('/faculty-workload', getFacultyWorkloadAnalytics);
 router.get('/departments', getDepartmentAnalytics);
 router.get('/weekly-distribution', getWeeklyScheduleDistribution);
 router.get('/summary', getAnalyticsSummary);
