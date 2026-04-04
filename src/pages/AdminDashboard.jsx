@@ -6,7 +6,6 @@ import {
   Search, LogOut, ChevronRight, Menu, X,
   Maximize, Command, Sparkles, AlertCircle, ArrowUpRight
 } from "lucide-react";
-import { createPortal } from "react-dom";
 
 // Import admin components
 import HomeComponent from "../components/admin/HomeComponent";
@@ -125,31 +124,13 @@ const AdminDashboard = () => {
         animate={isExpanded ? "expanded" : "collapsed"}
         variants={sidebarVariants}
         className="bg-gradient-to-b -left-5 from-indigo-700 to-purple-700 shadow-2xl rounded-r-[3rem] flex flex-col items-center py-10 gap-8 relative overflow-visible z-50"
-        style={{
-          height: "100%",
-          overflowY: "auto",
-          overflowX: "hidden",
-        }}
       >
-        {/* Hide scrollbar */}
-        <style>
-          {`
-            .bg-gradient-to-b.from-indigo-700.to-purple-700 {
-              scrollbar-width: none;
-              -ms-overflow-style: none;
-            }
-            .bg-gradient-to-b.from-indigo-700.to-purple-700::-webkit-scrollbar {
-              display: none;
-            }
-          `}
-        </style>
-        
         <div className="absolute inset-0 bg-white/5 backdrop-blur-[1px] pointer-events-none rounded-r-[3rem]" />
 
         {/* Logo Toggle */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="relative z-10 w-14 h-14 bg-black/50 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/10 shadow-inner hover:scale-110 active:scale-95 transition-transform cursor-pointer p-2 flex-shrink-0"
+          className="relative z-10 w-14 h-14 bg-black/50 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/10 shadow-inner hover:scale-110 active:scale-95 transition-transform cursor-pointer p-2"
         >
           <motion.img
             src={LogoPng}
@@ -167,9 +148,7 @@ const AdminDashboard = () => {
             <button
               key={item.key}
               onClick={() => setActiveTab(item.key)}
-              onMouseEnter={(e) => !isExpanded && handleMouseEnter(e, item.label)}
-              onMouseLeave={handleMouseLeave}
-              className={`p-3.5 rounded-2xl transition-all duration-500 relative group flex items-center w-full
+              className={`p-3.5 rounded-2xl transition-all duration-500 relative group flex items-center
                 ${isExpanded ? "justify-start gap-4 px-5" : "justify-center px-4"}
                 ${activeTab === item.key
                   ? "bg-white text-[#7C3AED] shadow-xl"
@@ -200,12 +179,18 @@ const AdminDashboard = () => {
                   </motion.span>
                 )}
               </AnimatePresence>
+
+              {!isExpanded && (
+                <span className="absolute left-full ml-4 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-lg border border-white/20 text-black text-[13px] px-4 py-2.5 rounded-xl pointer-events-none uppercase tracking-widest font-bold whitespace-nowrap origin-left scale-x-0 opacity-0 transition-all duration-300 ease-out group-hover:scale-x-100 group-hover:opacity-100 shadow-xl">
+                  {item.label}
+                </span>
+              )}
             </button>
           ))}
         </nav>
 
         {/* Bottom Profile */}
-        <div className="relative z-10 px-4 w-full flex-shrink-0">
+        <div className="relative z-10 px-4 w-full">
           <div className={`flex items-center gap-3 transition-all duration-500 ${isExpanded ? "bg-white/10 p-2 rounded-2xl" : "justify-center"}`}>
             <div className="w-10 h-10 rounded-xl bg-white/20 p-0.5 border border-white/30 overflow-hidden shrink-0">
               <img src={adminData.avatar} alt="avatar" className="rounded-lg bg-violet-100 w-full h-full object-cover" />
