@@ -1,160 +1,185 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Save, Bell, Lock, Palette, Clock, Calendar, Check, Shield } from "lucide-react";
+import { 
+  Bell, Shield, Monitor, Globe, 
+  Database, Save, Trash2, HelpCircle,
+  Moon, Sun, Smartphone, Mail,
+  Lock, Key, Sliders, ChevronRight
+} from "lucide-react";
+
+const containerVariants = { hidden: {}, visible: { transition: { staggerChildren: 0.1 } } };
+const itemVariants = { hidden: { opacity: 0, x: -20 }, visible: { opacity: 1, x: 0, transition: { duration: 0.4 } } };
 
 const SettingsComponent = () => {
-  const [saved, setSaved] = useState(false);
-  const [settings, setSettings] = useState({
-    institutionName: "Schedula Institute of Technology",
-    academicYear: "2025-26",
-    semester: "Even",
-    workingDays: ["Mon", "Tue", "Wed", "Thu", "Fri"],
-    dayStart: "08:00",
-    dayEnd: "17:00",
-    slotDuration: 60,
-    breakStart: "12:00",
-    breakDuration: 60,
-    notifications: true,
-    conflictAlerts: true,
-    autoBackup: false,
-    theme: "light",
-    adminName: "Admin User",
-    adminEmail: "admin@schedula.edu",
-  });
+  const [activeSetTab, setActiveSetTab] = useState("general");
 
-  const toggle = (key) => setSettings(p => ({ ...p, [key]: !p[key] }));
-  const update = (key, val) => setSettings(p => ({ ...p, [key]: val }));
-  const toggleDay = (d) => setSettings(p => ({
-    ...p,
-    workingDays: p.workingDays.includes(d) ? p.workingDays.filter(x => x !== d) : [...p.workingDays, d]
-  }));
-
-  const handleSave = () => { setSaved(true); setTimeout(() => setSaved(false), 2500); };
-
-  const Section = ({ icon, title, children }) => (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-4">
-      <div className="flex items-center gap-3 mb-1">
-        <div className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">{icon}</div>
-        <h3 className="text-sm font-black text-slate-800">{title}</h3>
-      </div>
-      {children}
-    </div>
-  );
-
-  const Field = ({ label, children }) => (
-    <div className="flex items-center justify-between gap-4">
-      <label className="text-sm font-medium text-slate-600 flex-shrink-0">{label}</label>
-      {children}
-    </div>
-  );
-
-  const Toggle = ({ value, onChange }) => (
-    <button
-      onClick={onChange}
-      className={`w-11 h-6 rounded-full transition-all duration-300 relative flex-shrink-0 ${value ? "bg-indigo-600" : "bg-slate-200"}`}
-    >
-      <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all duration-300 shadow ${value ? "left-6" : "left-1"}`} />
-    </button>
-  );
-
-  const inputCls = "px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-200 text-right";
+  const settingsOptions = [
+    { id: "general", label: "General", icon: <Sliders size={20} /> },
+    { id: "security", label: "Security", icon: <Shield size={20} /> },
+    { id: "notifications", label: "Alerts", icon: <Bell size={20} /> },
+    { id: "display", label: "Appearance", icon: <Monitor size={20} /> },
+    { id: "system", label: "System Info", icon: <Database size={20} /> },
+  ];
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-black text-slate-800">Settings</h2>
-          <p className="text-sm text-slate-400 mt-0.5">Configure your institution and scheduling preferences</p>
-        </div>
-        <button
-          onClick={handleSave}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-sm transition-all shadow-md ${saved ? "bg-emerald-500 text-white" : "bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-lg"}`}
-        >
-          {saved ? <><Check size={16} /> Saved!</> : <><Save size={16} /> Save Settings</>}
-        </button>
+    <motion.div className="max-w-6xl mx-auto" variants={containerVariants} initial="hidden" animate="visible">
+      {/* Settings Header */}
+      <div className="mb-10 text-center md:text-left">
+        <h2 className="text-4xl font-black text-slate-800 tracking-tighter">System Configuration</h2>
+        <p className="text-slate-400 font-medium mt-1">Manage global parameters, security protocols, and visual preferences.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-5">
-        {/* Institution */}
-        <Section icon={<Shield size={16} />} title="Institution">
-          <Field label="Institution Name">
-            <input value={settings.institutionName} onChange={e => update("institutionName", e.target.value)} className={`${inputCls} w-64`} />
-          </Field>
-          <Field label="Academic Year">
-            <input value={settings.academicYear} onChange={e => update("academicYear", e.target.value)} className={`${inputCls} w-28`} />
-          </Field>
-          <Field label="Current Semester">
-            <select value={settings.semester} onChange={e => update("semester", e.target.value)}
-              className={`${inputCls} w-28`}>
-              <option>Odd</option>
-              <option>Even</option>
-            </select>
-          </Field>
-          <Field label="Admin Name">
-            <input value={settings.adminName} onChange={e => update("adminName", e.target.value)} className={`${inputCls} w-48`} />
-          </Field>
-          <Field label="Admin Email">
-            <input value={settings.adminEmail} onChange={e => update("adminEmail", e.target.value)} className={`${inputCls} w-56`} />
-          </Field>
-        </Section>
-
-        {/* Schedule Settings */}
-        <Section icon={<Clock size={16} />} title="Schedule Configuration">
-          <Field label="Day Start Time">
-            <input type="time" value={settings.dayStart} onChange={e => update("dayStart", e.target.value)} className={inputCls} />
-          </Field>
-          <Field label="Day End Time">
-            <input type="time" value={settings.dayEnd} onChange={e => update("dayEnd", e.target.value)} className={inputCls} />
-          </Field>
-          <Field label="Slot Duration (mins)">
-            <select value={settings.slotDuration} onChange={e => update("slotDuration", Number(e.target.value))} className={inputCls}>
-              {[45, 50, 60, 75, 90].map(v => <option key={v}>{v}</option>)}
-            </select>
-          </Field>
-          <Field label="Break Start Time">
-            <input type="time" value={settings.breakStart} onChange={e => update("breakStart", e.target.value)} className={inputCls} />
-          </Field>
-          <Field label="Break Duration (mins)">
-            <select value={settings.breakDuration} onChange={e => update("breakDuration", Number(e.target.value))} className={inputCls}>
-              {[30, 45, 60].map(v => <option key={v}>{v}</option>)}
-            </select>
-          </Field>
-        </Section>
-
-        {/* Working Days */}
-        <Section icon={<Calendar size={16} />} title="Working Days">
-          <div className="flex gap-3 flex-wrap">
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
-              <button
-                key={d}
-                onClick={() => toggleDay(d)}
-                className={`w-14 py-2.5 rounded-xl font-bold text-sm transition-all ${settings.workingDays.includes(d) ? "bg-indigo-600 text-white shadow-md" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
-              >
-                {d}
+      <div className="flex flex-col lg:flex-row gap-10">
+        {/* Sidebar Nav */}
+        <div className="lg:w-72 shrink-0">
+          <div className="bg-white/60 backdrop-blur-xl border border-white/50 p-3 rounded-[2rem] shadow-sm sticky top-6">
+            <nav className="flex flex-col gap-2">
+              {settingsOptions.map(opt => (
+                <button
+                  key={opt.id}
+                  onClick={() => setActiveSetTab(opt.id)}
+                  className={`flex items-center justify-between px-6 py-4 rounded-2xl font-black text-sm transition-all ${
+                    activeSetTab === opt.id 
+                      ? "bg-indigo-600 text-white shadow-xl shadow-indigo-100" 
+                      : "text-slate-500 hover:text-slate-800 hover:bg-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    {opt.icon}
+                    {opt.label}
+                  </div>
+                  {activeSetTab === opt.id && <ChevronRight size={18} />}
+                </button>
+              ))}
+            </nav>
+            <div className="mt-8 pt-8 border-t border-slate-100/50 px-4">
+              <button className="flex items-center gap-3 text-rose-500 font-black text-xs uppercase tracking-widest hover:opacity-70 transition-opacity">
+                <Trash2 size={16} /> Reset All Config
               </button>
-            ))}
-          </div>
-          <p className="text-xs text-slate-400 mt-1">{settings.workingDays.length} working days selected</p>
-        </Section>
-
-        {/* Notifications */}
-        <Section icon={<Bell size={16} />} title="Notifications & Preferences">
-          {[
-            { key: "notifications", label: "Enable Notifications", desc: "Get notified about schedule changes" },
-            { key: "conflictAlerts", label: "Conflict Alerts", desc: "Alert on scheduling conflicts" },
-            { key: "autoBackup", label: "Auto Backup", desc: "Automatically backup timetables daily" },
-          ].map(opt => (
-            <div key={opt.key} className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-bold text-slate-700">{opt.label}</p>
-                <p className="text-xs text-slate-400">{opt.desc}</p>
-              </div>
-              <Toggle value={settings[opt.key]} onChange={() => toggle(opt.key)} />
             </div>
-          ))}
-        </Section>
+          </div>
+        </div>
+
+        {/* Content Pane */}
+        <div className="flex-1">
+          <motion.div 
+            key={activeSetTab}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white/60 backdrop-blur-xl border border-white/50 p-10 rounded-[3rem] shadow-sm min-h-[600px]"
+          >
+            {activeSetTab === "general" && (
+              <div className="space-y-10">
+                <div>
+                   <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-6">Global Preferences</h3>
+                   <div className="grid gap-6">
+                      <div className="flex items-center justify-between p-6 bg-white/40 rounded-3xl border border-white/50 group hover:bg-white transition-all">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl group-hover:scale-110 transition-transform"><Globe size={24} /></div>
+                          <div>
+                            <p className="font-black text-slate-700">Language Distribution</p>
+                            <p className="text-sm text-slate-400 font-medium">Auto-detect system locale for faculty.</p>
+                          </div>
+                        </div>
+                        <select className="bg-slate-50 px-4 py-2 rounded-xl text-sm font-bold text-slate-600 border-none outline-none ring-1 ring-slate-200">
+                          <option>English (IN)</option>
+                          <option>English (US)</option>
+                          <option>Hindi</option>
+                        </select>
+                      </div>
+
+                      <div className="flex items-center justify-between p-6 bg-white/40 rounded-3xl border border-white/50 group hover:bg-white transition-all">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl group-hover:scale-110 transition-transform"><Smartphone size={24} /></div>
+                          <div>
+                            <p className="font-black text-slate-700">Mobile Syncing</p>
+                            <p className="text-sm text-slate-400 font-medium">Push updates to Schedula Mobile app.</p>
+                          </div>
+                        </div>
+                        <div className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" className="sr-only peer" defaultChecked />
+                          <div className="w-14 h-8 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </div>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="pt-10 border-t border-slate-100">
+                  <h3 className="text-xl font-black text-slate-800 tracking-tight mb-6">Administrator Details</h3>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Admin Display Name</label>
+                       <input type="text" placeholder="Admin Coordinator" className="w-full px-6 py-4 bg-white/50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-100 transition-all font-bold" />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Official Email Address</label>
+                       <input type="email" placeholder="admin@schedula.edu" className="w-full px-6 py-4 bg-white/50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-100 transition-all font-bold" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSetTab === "security" && (
+              <div className="space-y-10">
+                <h3 className="text-2xl font-black text-slate-800 tracking-tight">Security Protocols</h3>
+                 <div className="grid gap-6">
+                    {[
+                      { l: "Two-Factor Authentication", d: "Add an extra layer of security to your admin account.", icon: <Shield className="text-emerald-500" />, check: true },
+                      { l: "Session Persistence", d: "Maximum duration for an active admin dashboard session.", icon: <Clock className="text-amber-500" />, check: false },
+                      { l: "Encrypted Database Exports", d: "Always encrypt CSV/Report exports from the system.", icon: <Lock className="text-indigo-500" />, check: true },
+                    ].map((s, i) => (
+                      <div key={i} className="flex items-center justify-between p-6 bg-white border border-slate-100 rounded-3xl group transition-all cursor-pointer">
+                        <div className="flex items-center gap-5">
+                          <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-slate-100 transition-colors">
+                            {s.icon}
+                          </div>
+                          <div>
+                            <p className="font-black text-slate-800 text-lg leading-tight">{s.l}</p>
+                            <p className="text-sm text-slate-400 font-medium mt-1">{s.d}</p>
+                          </div>
+                        </div>
+                        <div className="w-12 h-12 bg-white border border-slate-200 rounded-2xl flex items-center justify-center text-slate-300 group-hover:text-indigo-600 group-hover:border-indigo-100 transition-all shadow-sm">
+                          <Key size={24} />
+                        </div>
+                      </div>
+                    ))}
+                 </div>
+              </div>
+            )}
+
+            {/* Display / Themes View */}
+            {activeSetTab === "display" && (
+              <div className="space-y-8">
+                 <h3 className="text-2xl font-black text-slate-800 tracking-tight">Interface Theme</h3>
+                 <div className="grid grid-cols-3 gap-6">
+                    {[
+                      { id: "light", label: "Light Mode", icon: <Sun size={32} /> },
+                      { id: "dark", label: "Dark Mode", icon: <Moon size={32} /> },
+                      { id: "system", label: "System Sync", icon: <Monitor size={32} /> },
+                    ].map(t => (
+                      <button key={t.id} className={`p-8 rounded-[2.5rem] border-2 transition-all flex flex-col items-center gap-4 ${t.id === "light" ? "border-indigo-600 bg-white shadow-2xl shadow-indigo-100" : "border-slate-100 bg-slate-50 text-slate-400"}`}>
+                        <div className={t.id === "light" ? "text-indigo-600 scale-125 transition-transform" : ""}>{t.icon}</div>
+                        <span className="font-black text-sm tracking-widest uppercase">{t.label}</span>
+                      </button>
+                    ))}
+                 </div>
+              </div>
+            )}
+
+            {/* Bottom Actions */}
+            <div className="absolute bottom-10 left-10 right-10 flex items-center justify-between pt-10 border-t border-slate-100">
+               <div className="flex items-center gap-2 text-slate-400 text-sm font-black italic">
+                 <HelpCircle size={16} /> Need assistance? View documentation.
+               </div>
+               <button className="flex items-center gap-2 px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-base shadow-xl shadow-indigo-200 hover:scale-105 transition-all active:scale-95">
+                 <Save size={20} /> Deploy Configuration
+               </button>
+            </div>
+          </motion.div>
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
