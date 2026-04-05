@@ -218,6 +218,7 @@ const BreakCard = () => (
 const SessionCard = memo(({
   session, day, slotNumber, division, isCurrent, hasClash,
   onEdit, onDelete, onDragStart, onDragOver, onDrop, isDragging, dragTarget,
+  absentFaculty = [], // ADD default value to prevent undefined
 }) => {
   const cfg = tc(session.type);
   const isDropTarget = dragTarget?.day === day && dragTarget?.slotNumber === slotNumber && dragTarget?.division === division;
@@ -295,7 +296,9 @@ const SessionCard = memo(({
         )}
         <div className="flex items-center gap-2 flex-wrap">
           {session.faculty && session.faculty !== "NULL" && session.faculty !== "-" && (
-            <div className="flex items-center gap-1 text-xs text-slate-600 font-semibold bg-white/80 px-2 py-0.5 rounded-lg shadow-sm border border-white/60">
+            <div className={`flex items-center gap-1 text-xs font-semibold bg-white/80 px-2 py-0.5 rounded-lg shadow-sm border border-white/60 ${
+              absentFaculty?.includes(session.faculty_id) ? "bg-red-100 text-red-700 border-red-200" : "text-slate-600"
+            }`}>
               <GraduationCap size={12} className="text-indigo-400 shrink-0" />
               <span className="truncate max-w-[80px]">{session.faculty}</span>
             </div>
@@ -310,57 +313,35 @@ const SessionCard = memo(({
       </div>
 
       {/* ── Action buttons ── */}
-<div className="absolute top-8 right-2 flex flex-col gap-1.5 z-[9999]">
+      <div className="absolute top-8 right-2 flex flex-col gap-1.5 z-[9999]">
+        {/* EDIT */}
+        <button
+          onClick={e => {
+            e.stopPropagation();
+            onEdit(session, day, slotNumber, division);
+          }}
+          className="relative z-[9999] w-9 h-9 rounded-xl bg-white !opacity-100 border border-slate-300 flex items-center justify-center shadow-xl hover:bg-indigo-50 hover:border-indigo-300 hover:scale-110 active:scale-95 transition-all duration-150"
+          title="Edit"
+        >
+          <span className="flex items-center justify-center">
+            <Edit3 size={16} color="#475569" />
+          </span>
+        </button>
 
-  {/* EDIT */}
-  <button
-    onClick={e => {
-      e.stopPropagation();
-      onEdit(session, day, slotNumber, division);
-    }}
-    className="
-      relative z-[9999]
-      w-9 h-9 rounded-xl
-      bg-white !opacity-100
-      border border-slate-300
-      flex items-center justify-center
-      shadow-xl
-      hover:bg-indigo-50 hover:border-indigo-300
-      hover:scale-110 active:scale-95
-      transition-all duration-150
-    "
-    title="Edit"
-  >
-    <span className="flex items-center justify-center">
-      <Edit3 size={16} color="#475569" />
-    </span>
-  </button>
-
-  {/* DELETE */}
-  <button
-    onClick={e => {
-      e.stopPropagation();
-      onDelete(day, slotNumber, division, session);
-    }}
-    className="
-      relative z-[9999]
-      w-9 h-9 rounded-xl
-      bg-white !opacity-100
-      border border-slate-300
-      flex items-center justify-center
-      shadow-xl
-      hover:bg-red-50 hover:border-red-300
-      hover:scale-110 active:scale-95
-      transition-all duration-150
-    "
-    title="Delete"
-  >
-    <span className="flex items-center justify-center">
-      <Trash2 size={16} color="#e11d48" />
-    </span>
-  </button>
-
-</div>
+        {/* DELETE */}
+        <button
+          onClick={e => {
+            e.stopPropagation();
+            onDelete(day, slotNumber, division, session);
+          }}
+          className="relative z-[9999] w-9 h-9 rounded-xl bg-white !opacity-100 border border-slate-300 flex items-center justify-center shadow-xl hover:bg-red-50 hover:border-red-300 hover:scale-110 active:scale-95 transition-all duration-150"
+          title="Delete"
+        >
+          <span className="flex items-center justify-center">
+            <Trash2 size={16} color="#e11d48" />
+          </span>
+        </button>
+      </div>
 
       {/* ── Live dot ── */}
       {isCurrent && (
@@ -379,15 +360,16 @@ const SessionCard = memo(({
   p.session   === n.session   &&
   p.isCurrent === n.isCurrent &&
   p.hasClash  === n.hasClash  &&
-  p.isDragging=== n.isDragging&&
-  p.dragTarget=== n.dragTarget
+  p.isDragging=== n.isDragging &&
+  p.dragTarget=== n.dragTarget &&
+  p.absentFaculty === n.absentFaculty
 );
 
 // ─────────────────────────── Split Card ──────────────────────────────────────
 
 const SplitCard = memo(({
   sessions, day, slotNumber, division, hasClash,
-  onEdit, onDelete, onDragStart, onDragOver, onDrop, dragTarget
+  onEdit, onDelete, onDragStart, onDragOver, onDrop, dragTarget,absentFaculty = [],
 }) => {
 
   const isDropTarget =
@@ -474,6 +456,15 @@ const SplitCard = memo(({
                   <div className="flex items-center gap-0.5 text-[10px] text-slate-500 font-medium">
                     <MapPin size={9} className="text-rose-400" />
                     {s.room}
+                  </div>
+                )}
+
+                {s.faculty && s.faculty !== "NULL" && s.faculty !== "-" && (
+                  <div className={`flex items-center gap-0.5 text-[10px] font-medium ${
+                    absentFaculty.includes(s.faculty_id) ? "text-red-600 font-bold" : "text-slate-500"
+                  }`}>
+                    <GraduationCap size={9} className="text-rose-400" />
+                    <span className="truncate max-w-[60px]">{s.faculty}</span>
                   </div>
                 )}
 
@@ -830,7 +821,7 @@ const SessionModal = memo(({
 const DivisionGrid = memo(({
   division, timetable, clashes, currentTime,
   onAdd, onEdit, onDelete,
-  dragSourceRef, dragTarget, setDragTarget, onDropComplete, onDragStart,
+  dragSourceRef, dragTarget, setDragTarget, onDropComplete, onDragStart,absentFaculty,
 }) => {
   const todayIdx = currentTime.getDay() - 1; // 0 = Monday
 
@@ -948,6 +939,7 @@ const DivisionGrid = memo(({
                   onDragOver: handleDragOver,
                   onDrop: onDropComplete,
                   isDragging, dragTarget,
+                  absentFaculty,
                 };
 
                 return (
@@ -955,8 +947,8 @@ const DivisionGrid = memo(({
                     {sessions.length === 0
                       ? <EmptyCard day={day} slotNumber={slot} division={division} onAdd={onAdd} onDragOver={handleDragOver} onDrop={onDropComplete} dragTarget={dragTarget} />
                       : sessions.length > 1
-                        ? <SplitCard sessions={sessions} {...commonProps} />
-                        : <SessionCard session={sessions[0]} {...commonProps} />
+                        ? <SplitCard sessions={sessions} {...commonProps} absentFaculty={absentFaculty} />
+                        : <SessionCard session={sessions[0]} {...commonProps} absentFaculty={absentFaculty} />
                     }
                   </div>
                 );
@@ -989,7 +981,7 @@ const AdminTimetableComponent = () => {
   const [showClashes,  setShowClashes]  = useState(false);
   const [sideAnimIdx,  setSideAnimIdx]  = useState(0);
   const [showSideAnim, setShowSideAnim] = useState(true);
-
+  const [absentFaculty, setAbsentFaculty] = useState([]); // ADD THIS LINE
   const [facultyList,  setFacultyList]  = useState([]);
   const [roomsList,    setRoomsList]    = useState([]);
   const [subjectsList, setSubjectsList] = useState([]);
@@ -1023,9 +1015,30 @@ const AdminTimetableComponent = () => {
     } catch (e) { setError(e.message); }
   }, []);
 
+  // ADD THIS NEW FUNCTION
+const fetchAbsentFaculty = useCallback(async () => {
+  try {
+    const token = localStorage.getItem("token");
+    const today = new Date().toISOString().split('T')[0];
+    
+    const response = await fetch(
+      `http://localhost:5000/api/attendance/absent?date=${today}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    
+    const data = await response.json();
+    if (data.success) {
+      setAbsentFaculty(data.data.map(f => f.faculty_id));
+    }
+  } catch (error) {
+    console.error("Error fetching absent faculty:", error);
+  }
+  }, []);
+
   useEffect(() => {
     let mounted = true;
     let maxTimer, minTimer, animCycle;
+    let attendanceInterval;
 
     const init = async () => {
       setLoadingState("loading");
@@ -1046,6 +1059,7 @@ const AdminTimetableComponent = () => {
       }, 10000);
 
       await fetchTimetable();
+      await fetchAbsentFaculty();
 
       Promise.all([
         fetch("http://localhost:5000/api/timetable/faculty/all",  { headers: authHeaders() }).then(r => r.json()).catch(() => null),
@@ -1064,10 +1078,20 @@ const AdminTimetableComponent = () => {
 
     init();
     const tick = setInterval(() => { if (mounted) setCurrentTime(new Date()); }, 60000);
+
+     attendanceInterval = setInterval(() => {  // REMOVE 'const' from here
+    if (mounted && timetable) {
+      fetchAbsentFaculty();
+    }
+    }, 5 * 60 * 1000);
+
+
     return () => {
       mounted = false;
       clearTimeout(maxTimer); clearTimeout(minTimer);
       clearInterval(animCycle); clearInterval(tick);
+      clearInterval(attendanceInterval);
+      if (attendanceInterval) clearInterval(attendanceInterval);
     };
   }, []);
 
@@ -1269,6 +1293,7 @@ const AdminTimetableComponent = () => {
     onAdd: handleAdd, onEdit: handleEdit, onDelete: handleDelete,
     dragSourceRef, dragTarget, setDragTarget,
     onDropComplete: handleDropComplete, onDragStart: handleDragStart,
+    absentFaculty,
   };
 
   return (
