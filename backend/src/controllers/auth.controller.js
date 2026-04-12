@@ -64,7 +64,7 @@ exports.signup = async (req, res) => {
       role.toLowerCase(),
     ]);
 
-    res.status(201).json({ 
+    res.status(201).json({
       message: "User registered successfully",
       user: result.rows[0]
     });
@@ -86,10 +86,10 @@ exports.login = async (req, res) => {
 
     // Check if identifier is email or college_id
     const isEmail = identifier.includes('@');
-    
+
     let sql;
     let values;
-    
+
     if (isEmail) {
       sql = "SELECT * FROM users WHERE email = $1";
       values = [identifier];
@@ -114,10 +114,10 @@ exports.login = async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { 
-        id: user.id, 
+      {
+        id: user.id,
         college_id: user.college_id,
-        role: user.role.toUpperCase() 
+        role: user.role.toUpperCase()
       },
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: "1d" }
@@ -148,14 +148,14 @@ exports.login = async (req, res) => {
 exports.getUserById = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const sql = "SELECT id, college_id, name, email, phone, role FROM users WHERE id = $1";
     const result = await db.query(sql, [id]);
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ message: "User not found" });
     }
-    
+
     res.status(200).json({ user: result.rows[0] });
   } catch (error) {
     console.error("Get user error:", error);

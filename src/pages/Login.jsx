@@ -16,6 +16,7 @@ import gradientBgData from "../assets/Background 3d stroke.json";
 import successAnimation from "../assets/succes.json"; // You can use any success animation
 import LogoPng from "../assets/logo.png";
 
+
 const Login = () => {
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
@@ -37,6 +38,7 @@ const Login = () => {
   }, []);
 
   const API_URL = `${import.meta.env.VITE_API_BASE_URL}/api/auth`;
+
 
   const toggleAuth = () => {
     setIsLogin(!isLogin);
@@ -69,14 +71,11 @@ const Login = () => {
         })
       });
       const data = await res.json();
-      if (!data) {
-        return res.status(404).json({ message: "User not found" });
-      }
+      if (!res.ok) throw new Error(data.message || "Login failed");
 
-      return res.json({ success: true });
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
-
+      
       // Redirect based on role
       const role = data.user.role.toUpperCase();
       if (role === "ADMIN") {
