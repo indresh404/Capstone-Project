@@ -7,6 +7,9 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import LottieComponent from "lottie-react";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+
 const Lottie = LottieComponent.default ?? LottieComponent;
 
 import mainAnimation  from "../../assets/tt_loading_main.json";
@@ -342,7 +345,7 @@ const TimetableComponent = () => {
       const token = localStorage.getItem("token");
       if (!token) { setError("Please login to view timetable"); setLoadingState("error"); return; }
       const response = await axios.get(
-        `http://localhost:5000/api/timetable?division=${division}`,
+        `${API_BASE_URL}/api/timetable?division=${division}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (response.data.success) {
