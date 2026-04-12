@@ -14,7 +14,7 @@ import CoursesComponent from "../components/admin/CoursesComponent";
 import TimetableEditorComponent from "../components/admin/TimetableEditorComponent";
 import AnalyticsComponent from "../components/admin/AnalyticsComponent";
 import SettingsComponent from "../components/admin/SettingsComponent";
-import LogoPng from "../assets/Logo.png";
+import LogoPng from "../assets/logo.png";
 
 // Safety "Coming Soon" Component
 const ComingSoon = ({ activeTab }) => (

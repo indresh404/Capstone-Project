@@ -12,7 +12,7 @@ import AttendanceComponent from "../components/faculty/AttendanceComponent";
 import TimetableComponent from "../components/faculty/TimetableComponent";
 import RequestsComponent from "../components/faculty/RequestsComponent";
 import SettingsComponent from "../components/faculty/SettingsComponent";
-import LogoPng from "../assets/Logo.png";
+import LogoPng from "../assets/logo.png";
 
 const FacultyDashboard = () => {
   const [activeTab, setActiveTab] = useState("home");
