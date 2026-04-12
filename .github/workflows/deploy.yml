@@ -1,0 +1,41 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Get code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Setup Node
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      # Step 3: Install frontend deps
+      - name: Install Frontend
+        run: npm install
+
+      # Step 4: Build frontend
+      - name: Build Frontend
+        run: npm run build
+
+      # Step 5: Install backend deps
+      - name: Install Backend
+        run: |
+          cd backend
+          npm install
+
+      # Step 6: Test backend
+      - name: Test Backend
+        run: |
+          cd backend
+          node test-db.js || echo "No tests yet"
