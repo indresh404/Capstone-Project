@@ -29,6 +29,11 @@ app.use('/api/analytics', analyticsRoutes);
 app.use("/api/courses", coursesRoutes);
 app.use("/api/attendance", attendanceRoutes);
 
+app.get("/health", (req, res) => {
+  res.status(200).send("OK");
+  res.json({ message: "Backend is working!" });
+});
+
 // Test route
 app.get("/api/test", (req, res) => {
   res.json({ message: "Backend is working!" });
