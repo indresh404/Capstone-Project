@@ -1,4 +1,5 @@
 const pool = require('../db/db');
+const axios = require('axios');
 
 // Get subject-wise hours completion
 const getSubjectHoursAnalytics = async (req, res) => {
@@ -294,11 +295,91 @@ const getAnalyticsInsights = async (req, res) => {
   }
 };
 
+// Generate AI Summary using Groq
+const getAISummary = async (req, res) => {
+  try {
+    console.log("--- AI Summary Generation Started ---");
+    const { payload } = req.body;
+    const groqApiKey = process.env.VITE_GROQ_API_KEY;
+
+    console.log("API Key present:", !!groqApiKey);
+
+    if (!groqApiKey) {
+      return res.status(500).json({
+        success: false,
+        message: 'Groq API key not configured in backend .env'
+      });
+    }
+
+    const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+      messages: [
+        { 
+          role: 'system', 
+          content: `You are Schedula AI, a premium academic analyst. 
+          Analyze the provided timetable and workload data. 
+          
+          FORMATTING RULES:
+          1. Use ONLY bullet points (*) or numbered lists (1., 2.) for all insights.
+          2. One insight per line.
+          3. Use double line breaks between different sections.
+          4. Keep responses concise but highly informative.
+          5. NO long paragraphs.
+
+          ANALYTICAL FOCUS:
+          1. Faculty workload (identify who is under/overloaded and suggest improvements). 
+          2. Syllabus completion predictions (estimate completion months based on required vs scheduled hours). 
+          3. Subject assignment gaps (identify subjects with low coverage). 
+          4. Strategic suggestions for optimization. 
+          Tone: Institutional, Intelligent, and Action-oriented.` 
+        },
+        { 
+          role: 'user', 
+          content: `Analyze this dashboard data and provide a summary. 
+          
+          USER SELECTION CONTEXT:
+          - Target Subjects: ${payload.filters?.subjects?.length > 0 ? payload.filters.subjects.join(', ') : 'All Subjects'}
+          - Division Focus: ${payload.filters?.division || 'All Divisions'}
+          
+          DATA PAYLOAD: ${JSON.stringify(payload)}` 
+        }
+      ],
+      model: 'llama-3.3-70b-versatile',
+      temperature: 0.6,
+      max_tokens: 1024
+    }, {
+      headers: {
+        'Authorization': `Bearer ${groqApiKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    res.json({
+      success: true,
+      data: response.data.choices[0].message.content
+    });
+  } catch (error) {
+    console.error('--- Groq API Error Detail ---');
+    if (error.response) {
+      console.error('Status:', error.response.status);
+      console.error('Data:', JSON.stringify(error.response.data, null, 2));
+    } else {
+      console.error('Message:', error.message);
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate AI summary from Groq',
+      error: error.response?.data?.error?.message || error.message
+    });
+  }
+};
+
 module.exports = {
   getSubjectHoursAnalytics,
   getFacultyWorkloadAnalytics,
   getDepartmentAnalytics,
   getWeeklyScheduleDistribution,
   getAnalyticsSummary,
-  getAnalyticsInsights
+  getAnalyticsInsights,
+  getAISummary
 };

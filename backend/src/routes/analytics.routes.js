@@ -6,7 +6,8 @@ const {
   getDepartmentAnalytics,
   getWeeklyScheduleDistribution,
   getAnalyticsSummary,
-  getAnalyticsInsights
+  getAnalyticsInsights,
+  getAISummary
 } = require('../controllers/analytics.controller');
 
 // Public test route (no auth required for testing)
@@ -21,5 +22,6 @@ router.get('/departments', getDepartmentAnalytics);
 router.get('/weekly-distribution', getWeeklyScheduleDistribution);
 router.get('/summary', getAnalyticsSummary);
 router.get('/insights', getAnalyticsInsights);
+router.post('/ai-summary', getAISummary);
 
 module.exports = router;
