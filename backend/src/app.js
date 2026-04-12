@@ -18,9 +18,10 @@ const corsOptions = {
       process.env.FRONTEND_URL,
       "http://localhost:5173",
       "http://localhost:3000",
-      "http://localhost:4173"
+      "http://localhost:4173",
+      "https://capstone-project-xi-wine.vercel.app"
     ].filter(Boolean);
-    
+
     // Allow requests with no origin (like mobile apps or curl)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
