@@ -36,7 +36,7 @@ const Login = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  const API_URL = "http://localhost:5000/api/auth";
+  const API_URL = `${import.meta.env.VITE_API_BASE_URL}/api/auth`;
 
   const toggleAuth = () => {
     setIsLogin(!isLogin);

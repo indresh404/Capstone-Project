@@ -342,7 +342,7 @@ const TimetableComponent = () => {
       const token = localStorage.getItem("token");
       if (!token) { setError("Please login to view timetable"); setLoadingState("error"); return; }
       const response = await axios.get(
-        `http://localhost:5000/api/timetable?division=${division}`,
+        `${import.meta.env.VITE_API_BASE_URL}/api/timetable?division=${division}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (response.data.success) {

@@ -37,7 +37,7 @@ const CoursesComponent = () => {
       const endpoint = activeSubTab === "subjects" ? "subjects" : 
                        activeSubTab === "rooms" ? "rooms" : "divisions";
       
-      const response = await fetch(`http://localhost:5000/api/courses/${endpoint}`, { headers });
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/courses/${endpoint}`, { headers });
       const resData = await response.json();
 
       if (resData.success) {

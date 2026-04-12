@@ -12,7 +12,13 @@ const attendanceRoutes = require("./routes/attendance.routes");
 const app = express();
 
 /* middlewares */
-app.use(cors());            // allow frontend requests
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || "*",
+  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
 app.use(express.json());    // read JSON body
 
 /* routes */
@@ -31,7 +37,7 @@ app.get("/api/test", (req, res) => {
 /* server start */
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
-  console.log(`📍 Test endpoint: http://localhost:${PORT}/api/test`);
-  console.log(`📅 Timetable endpoint: http://localhost:${PORT}/api/timetable`);
+  console.log(`🚀 Schedula Server ACTIVE`);
+  console.log(`📡 Port: ${PORT}`);
+  console.log(`🔋 Environment: ${process.env.NODE_ENV || 'development'}`);
 });

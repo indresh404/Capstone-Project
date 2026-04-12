@@ -133,10 +133,10 @@ const HomeComponent = ({ setActiveTab }) => {
       const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
 
       const [summaryRes, facultyRes, subjectsRes, weeklyRes] = await Promise.all([
-        fetch('http://localhost:5000/api/analytics/summary', { headers }),
-        fetch('http://localhost:5000/api/analytics/faculty-workload', { headers }),
-        fetch('http://localhost:5000/api/analytics/subject-progress', { headers }),
-        fetch('http://localhost:5000/api/analytics/weekly-distribution', { headers })
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/api/analytics/summary`, { headers }),
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/api/analytics/faculty-workload`, { headers }),
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/api/analytics/subject-progress`, { headers }),
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/api/analytics/weekly-distribution`, { headers })
       ]);
 
       const sData = await summaryRes.json();
@@ -171,7 +171,7 @@ const HomeComponent = ({ setActiveTab }) => {
       };
 
       // Call the local backend proxy instead of calling Groq directly
-      const response = await axios.post('http://localhost:5000/api/analytics/ai-summary', { payload });
+      const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/analytics/ai-summary`, { payload });
 
       if (response.data.success) {
         setAiSummary(response.data.data);

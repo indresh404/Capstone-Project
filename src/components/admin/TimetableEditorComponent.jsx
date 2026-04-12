@@ -1003,8 +1003,8 @@ const AdminTimetableComponent = () => {
   const fetchTimetable = useCallback(async () => {
     try {
       const [rA, rB] = await Promise.all([
-        fetch("http://localhost:5000/api/timetable?division=A", { headers: authHeaders() }),
-        fetch("http://localhost:5000/api/timetable?division=B", { headers: authHeaders() }),
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/api/timetable?division=A`, { headers: authHeaders() }),
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/api/timetable?division=B`, { headers: authHeaders() }),
       ]);
       const [dA, dB] = await Promise.all([rA.json(), rB.json()]);
       if (dA.success && dB.success) {
@@ -1022,7 +1022,7 @@ const fetchAbsentFaculty = useCallback(async () => {
     const today = new Date().toISOString().split('T')[0];
     
     const response = await fetch(
-      `http://localhost:5000/api/attendance/absent?date=${today}`,
+      `${import.meta.env.VITE_API_BASE_URL}/api/attendance/absent?date=${today}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     
@@ -1062,9 +1062,9 @@ const fetchAbsentFaculty = useCallback(async () => {
       await fetchAbsentFaculty();
 
       Promise.all([
-        fetch("http://localhost:5000/api/timetable/faculty/all",  { headers: authHeaders() }).then(r => r.json()).catch(() => null),
-        fetch("http://localhost:5000/api/timetable/rooms/all",    { headers: authHeaders() }).then(r => r.json()).catch(() => null),
-        fetch("http://localhost:5000/api/timetable/subjects/all", { headers: authHeaders() }).then(r => r.json()).catch(() => null),
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/api/timetable/faculty/all`,  { headers: authHeaders() }).then(r => r.json()).catch(() => null),
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/api/timetable/rooms/all`,    { headers: authHeaders() }).then(r => r.json()).catch(() => null),
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/api/timetable/subjects/all`, { headers: authHeaders() }).then(r => r.json()).catch(() => null),
       ]).then(([f, r, s]) => {
         if (f?.success) setFacultyList(f.data);
         if (r?.success) setRoomsList(r.data);
@@ -1099,7 +1099,7 @@ const fetchAbsentFaculty = useCallback(async () => {
     if (!timetable || clashes.length > 0) return;
     setSaving(true);
     try {
-      const r = await fetch("http://localhost:5000/api/timetable/save", {
+      const r = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/timetable/save`, {
         method: "PUT", headers: authHeaders(), body: JSON.stringify({ timetable }),
       });
       const d = await r.json();
@@ -1114,7 +1114,7 @@ const fetchAbsentFaculty = useCallback(async () => {
   const handleAutoGenerate = useCallback(async () => {
     setGenerating(true);
     try {
-      const r = await fetch("http://localhost:5000/api/timetable/generate", {
+      const r = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/timetable/generate`, {
         method: "POST", headers: authHeaders(), body: JSON.stringify({ semester: "even", year: 2026 }),
       });
       const d = await r.json();
