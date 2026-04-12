@@ -10,7 +10,7 @@ import {
   Tooltip, ResponsiveContainer, Cell, ReferenceLine
 } from "recharts";
 
-const API_URL = "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_BASE_URL;
 const COLORS = ['#6366f1', '#a855f7', '#ec4899', '#f43f5e', '#ef4444', '#f59e0b', '#10b981', '#06b6d4', '#3b82f6'];
 
 const AnalyticsComponent = () => {

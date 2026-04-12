@@ -50,7 +50,7 @@ const authHeaders = () => ({
 });
 
 async function api(url, opts = {}) {
-  const r = await fetch(`http://localhost:5000${url}`, {
+  const r = await fetch(`${import.meta.env.VITE_API_BASE_URL}${url}`, {
     ...opts,
     headers: { ...authHeaders(), ...(opts.headers ?? {}) },
   });
