@@ -31,7 +31,6 @@ app.use("/api/attendance", attendanceRoutes);
 
 app.get("/health", (req, res) => {
   res.status(200).send("OK");
-  res.json({ message: "Backend is working!" });
 });
 
 // Test route

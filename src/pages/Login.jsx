@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
+import {
   Mail, Lock, User, Phone, Briefcase, GraduationCap,
   Fingerprint, Loader2, ChevronRight, AlertCircle, CheckCircle
 } from "lucide-react";
@@ -63,17 +63,20 @@ const Login = () => {
       const res = await fetch(`${API_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           identifier: loginData.identifier, // Can be email or college_id
-          password: loginData.password 
+          password: loginData.password
         })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Login failed");
+      if (!data) {
+        return res.status(404).json({ message: "User not found" });
+      }
 
+      return res.json({ success: true });
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
-      
+
       // Redirect based on role
       const role = data.user.role.toUpperCase();
       if (role === "ADMIN") {
@@ -90,13 +93,13 @@ const Login = () => {
 
   const handleSignupSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Validation
     if (signupData.password !== signupData.confirmPassword) {
       setErrors({ confirmPassword: "Passwords do not match" });
       return;
     }
-    
+
     if (signupData.password.length < 6) {
       setErrors({ password: "Password must be at least 6 characters" });
       return;
@@ -118,10 +121,10 @@ const Login = () => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Signup failed");
-      
+
       // Show success animation
       setShowSuccess(true);
-      
+
       // Auto redirect to login after 2 seconds
       setTimeout(() => {
         setShowSuccess(false);
@@ -130,7 +133,7 @@ const Login = () => {
           role: "", id: "", fullName: "", phone: "", email: "", password: "", confirmPassword: ""
         });
       }, 2000);
-      
+
     } catch (err) {
       setErrors({ submit: err.message });
     } finally { setIsLoading(false); }
@@ -138,22 +141,22 @@ const Login = () => {
 
   return (
     <div className="h-screen w-screen flex items-center justify-center bg-[#F9FAFB] font-sans overflow-hidden relative px-6 py-6">
-      
+
       {/* MAIN AUTH CARD */}
       <div className="relative z-10 flex w-full h-full max-w-[1700px] bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
-        
+
         {/* LEFT BRANDING PANEL */}
         <div className="hidden md:flex md:w-[60%] relative bg-indigo-600 overflow-hidden">
           <div className="absolute inset-0">
-            <Lottie 
-              animationData={gradientBgData} 
-              loop={true} 
-              style={{ width: '100%', height: '100%' }} 
+            <Lottie
+              animationData={gradientBgData}
+              loop={true}
+              style={{ width: '100%', height: '100%' }}
               rendererSettings={{ preserveAspectRatio: 'xMidYMid slice' }}
             />
           </div>
           <div className="absolute inset-0 bg-black/5 backdrop-blur-[1px]" />
-          
+
           <div className="relative z-20 w-full h-full flex flex-col items-center justify-center p-8 text-white text-center">
             <AnimatePresence mode="wait">
               {showLogo ? (
@@ -161,11 +164,11 @@ const Login = () => {
                   key="logo-png"
                   initial={{ opacity: 0, scale: 0.4, filter: "blur(10px)" }}
                   animate={{ opacity: 1, scale: 0.8, filter: "blur(0px)" }}
-                  exit={{ 
-                    opacity: 0, 
-                    scale: 1.1, 
+                  exit={{
+                    opacity: 0,
+                    scale: 1.1,
                     filter: "blur(15px)",
-                    transition: { duration: 0.4 } 
+                    transition: { duration: 0.4 }
                   }}
                   transition={{ type: "spring", stiffness: 100, damping: 18 }}
                 >
@@ -184,7 +187,7 @@ const Login = () => {
                     }
                   }}
                 >
-                  <motion.h1 
+                  <motion.h1
                     variants={{
                       hidden: { opacity: 0, y: 15, filter: "blur(4px)" },
                       visible: { opacity: 1, y: 0, filter: "blur(0px)" }
@@ -195,16 +198,16 @@ const Login = () => {
                     Schedula
                   </motion.h1>
 
-                  <motion.div 
+                  <motion.div
                     variants={{
                       hidden: { width: 0, opacity: 0 },
                       visible: { width: "40px", opacity: 1 }
                     }}
                     transition={{ duration: 0.8, ease: "circOut" }}
-                    className="h-[2px] bg-white/40 mb-4 mx-auto" 
+                    className="h-[2px] bg-white/40 mb-4 mx-auto"
                   />
 
-                  <motion.p 
+                  <motion.p
                     variants={{
                       hidden: { opacity: 0, letterSpacing: "0.1em" },
                       visible: { opacity: 1, letterSpacing: "0.3em" }
@@ -256,14 +259,14 @@ const Login = () => {
 
                 <form className="space-y-3" onSubmit={isLogin ? handleLoginSubmit : handleSignupSubmit}>
                   {!isLogin && (
-                    <motion.div 
-                      initial={{ opacity: 0, height: 0 }} 
-                      animate={{ opacity: 1, height: "auto" }} 
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
                       className="space-y-3"
                     >
                       <div className="relative">
-                        <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" size={16}/>
-                        <select 
+                        <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" size={16} />
+                        <select
                           name="role"
                           value={signupData.role}
                           onChange={handleSignupChange}
@@ -277,18 +280,18 @@ const Login = () => {
                         </select>
                       </div>
 
-                      <FormInput 
-                        name="id" placeholder="College/University ID" icon={<Fingerprint size={16}/>} 
-                        value={signupData.id} onChange={handleSignupChange} error={errors.id} 
+                      <FormInput
+                        name="id" placeholder="College/University ID" icon={<Fingerprint size={16} />}
+                        value={signupData.id} onChange={handleSignupChange} error={errors.id}
                         required
                       />
-                      <FormInput 
-                        name="fullName" placeholder="Full Name" icon={<User size={16}/>} 
-                        value={signupData.fullName} onChange={handleSignupChange} error={errors.fullName} 
+                      <FormInput
+                        name="fullName" placeholder="Full Name" icon={<User size={16} />}
+                        value={signupData.fullName} onChange={handleSignupChange} error={errors.fullName}
                         required
                       />
-                      <FormInput 
-                        name="phone" placeholder="Phone Number" icon={<Phone size={16}/>} 
+                      <FormInput
+                        name="phone" placeholder="Phone Number" icon={<Phone size={16} />}
                         value={signupData.phone} onChange={handleSignupChange} error={errors.phone}
                         required
                       />
@@ -296,53 +299,53 @@ const Login = () => {
                   )}
 
                   {isLogin ? (
-                    <FormInput 
-                      name="identifier" 
-                      placeholder="Email or College ID" 
-                      icon={<User size={16}/>} 
-                      value={loginData.identifier} 
-                      onChange={handleLoginChange} 
+                    <FormInput
+                      name="identifier"
+                      placeholder="Email or College ID"
+                      icon={<User size={16} />}
+                      value={loginData.identifier}
+                      onChange={handleLoginChange}
                       error={errors.identifier}
                       required
                     />
                   ) : (
-                    <FormInput 
-                      name="email" 
-                      placeholder="Email" 
-                      icon={<Mail size={16}/>} 
-                      value={signupData.email} 
-                      onChange={handleSignupChange} 
+                    <FormInput
+                      name="email"
+                      placeholder="Email"
+                      icon={<Mail size={16} />}
+                      value={signupData.email}
+                      onChange={handleSignupChange}
                       error={errors.email}
                       required
                     />
                   )}
 
-                  <FormInput 
-                    name="password" 
-                    placeholder="Password" 
+                  <FormInput
+                    name="password"
+                    placeholder="Password"
                     type="password"
-                    icon={<Lock size={16}/>} 
-                    value={isLogin ? loginData.password : signupData.password} 
-                    onChange={isLogin ? handleLoginChange : handleSignupChange} 
-                    error={errors.password} 
+                    icon={<Lock size={16} />}
+                    value={isLogin ? loginData.password : signupData.password}
+                    onChange={isLogin ? handleLoginChange : handleSignupChange}
+                    error={errors.password}
                     required
                   />
 
                   {!isLogin && (
-                     <FormInput 
-                      name="confirmPassword" 
-                      placeholder="Confirm Password" 
+                    <FormInput
+                      name="confirmPassword"
+                      placeholder="Confirm Password"
                       type="password"
-                      icon={<Lock size={16}/>} 
-                      value={signupData.confirmPassword} 
-                      onChange={handleSignupChange} 
-                      error={errors.confirmPassword} 
+                      icon={<Lock size={16} />}
+                      value={signupData.confirmPassword}
+                      onChange={handleSignupChange}
+                      error={errors.confirmPassword}
                       required
                     />
                   )}
 
                   {errors.submit && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="flex items-center gap-2 p-3 bg-red-50 text-red-600 rounded-xl text-[11px] font-bold border border-red-100"
@@ -351,7 +354,7 @@ const Login = () => {
                     </motion.div>
                   )}
 
-                  <button 
+                  <button
                     type="submit"
                     disabled={isLoading}
                     className="w-full bg-indigo-600 text-white font-bold text-sm py-3 rounded-xl shadow-lg hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -372,7 +375,7 @@ const Login = () => {
           {/* INTERNAL LOTTIE - Only shows when isLogin is true and no success animation */}
           <AnimatePresence>
             {isLogin && !showSuccess && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, scale: 0.5, y: 50 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.5, y: 50 }}
@@ -398,7 +401,7 @@ const FormInput = ({ icon, error, required, ...props }) => (
       <div className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${error ? 'text-red-400' : 'text-slate-300 group-focus-within:text-indigo-500'}`}>
         {icon}
       </div>
-      <input 
+      <input
         {...props}
         required={required}
         className={`w-full pl-11 pr-4 py-2.5 bg-slate-50 border rounded-xl text-xs font-semibold outline-none transition-all ${error ? 'border-red-400' : 'border-slate-100 focus:border-indigo-400 focus:bg-white'}`}
