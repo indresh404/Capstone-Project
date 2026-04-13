@@ -394,7 +394,7 @@ const Login = () => {
   );
 };
 
-const FormInput = ({ icon, error, required, ...props }) => (
+const FormInput = React.memo(({ icon, error, required, ...props }) => (
   <div className="w-full group">
     <div className="relative">
       <div className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${error ? 'text-red-400' : 'text-slate-300 group-focus-within:text-indigo-500'}`}>
@@ -408,6 +408,6 @@ const FormInput = ({ icon, error, required, ...props }) => (
     </div>
     {error && <p className="text-[10px] text-red-500 font-bold mt-1 ml-1">{error}</p>}
   </div>
-);
+));
 
 export default Login;

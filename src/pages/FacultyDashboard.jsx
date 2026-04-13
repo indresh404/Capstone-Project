@@ -2,8 +2,9 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   LayoutDashboard, Calendar, Users, FileText, 
-  Settings, Bell, ClipboardClock,
+  Settings, Bell, ClipboardClock, LogOut
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 // Import faculty components
 import HomeComponent from "../components/faculty/HomeComponent";
@@ -15,6 +16,7 @@ import SettingsComponent from "../components/faculty/SettingsComponent";
 import LogoPng from "../assets/logo.png";
 
 const FacultyDashboard = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("home");
   const [showNotifications, setShowNotifications] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -187,6 +189,38 @@ const userData = {
               </motion.div>
             )}
           </div>
+        </div>
+
+        {/* Logout Button */}
+        <div className="relative z-10 px-4 w-full mt-auto mb-4">
+          <button
+            onClick={() => {
+              localStorage.removeItem("token");
+              localStorage.removeItem("user");
+              navigate("/login");
+            }}
+            className={`p-4 rounded-2xl transition-all duration-500 relative group flex items-center w-full
+              ${isExpanded ? "justify-start gap-4 px-6" : "justify-center px-4"}
+              text-white/70 hover:text-white hover:bg-red-500/20 hover:shadow-lg`}
+          >
+            <div className="relative z-10 transition-transform duration-300 group-hover:rotate-6 shrink-0">
+              <LogOut size={22} className="text-red-400" />
+            </div>
+            {isExpanded && (
+              <motion.span
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="font-bold tracking-wide whitespace-nowrap text-sm text-red-400"
+              >
+                Logout
+              </motion.span>
+            )}
+            {!isExpanded && (
+              <span className="absolute left-full ml-4 top-1/2 -translate-y-1/2 bg-red-500/10 backdrop-blur-lg border border-red-500/20 text-red-500 text-[15px] px-5 py-3 rounded-xl pointer-events-none uppercase tracking-widest font-bold whitespace-nowrap origin-left scale-x-0 opacity-0 transition-all duration-300 ease-out group-hover:scale-x-100 group-hover:opacity-100 shadow-xl">
+                Logout
+              </span>
+            )}
+          </button>
         </div>
       </motion.aside>
 

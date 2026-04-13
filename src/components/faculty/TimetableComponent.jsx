@@ -103,7 +103,7 @@ function computeStats(timetable, division) {
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 // Break card — always shown for slot 4, non-interactive
-const BreakCard = () => (
+const BreakCard = React.memo(() => (
   <div className="rounded-xl overflow-hidden shadow-md ring-2 ring-yellow-300 ring-offset-1 h-[120px] flex flex-col">
     <div className="bg-slate-900/5 px-3 py-1.5 text-xs font-medium text-slate-600 flex justify-between items-center border-b border-white/20">
       <span className="flex items-center gap-1">
@@ -122,10 +122,10 @@ const BreakCard = () => (
       </div>
     </div>
   </div>
-);
+));
 
 // Session card (single session)
-const SingleSessionCard = ({ session, day, slotNumber, isCurrent, hoveredSlot, setHoveredSlot, setSubjectTooltip, subjectTooltip, onClick }) => {
+const SingleSessionCard = React.memo(({ session, day, slotNumber, isCurrent, hoveredSlot, setHoveredSlot, setSubjectTooltip, subjectTooltip, onClick }) => {
   const style = getStyle(session.type);
   const tooltipKey = `${day}-${slotNumber}`;
   const showTooltip = subjectTooltip === tooltipKey && session.type !== "break" && session.type !== "zero";
@@ -211,10 +211,11 @@ const SingleSessionCard = ({ session, day, slotNumber, isCurrent, hoveredSlot, s
       )}
     </motion.div>
   );
-};
+});
+
 
 // Split session card (multiple sessions in same slot)
-const SplitSessionCard = ({ sessions, day, slotNumber, isCurrent, hoveredSlot, setHoveredSlot, setSubjectTooltip, subjectTooltip, onClick }) => {
+const SplitSessionCard = React.memo(({ sessions, day, slotNumber, isCurrent, hoveredSlot, setHoveredSlot, setSubjectTooltip, subjectTooltip, onClick }) => {
   const tooltipKey = `${day}-${slotNumber}`;
 
   return (
@@ -293,10 +294,10 @@ const SplitSessionCard = ({ sessions, day, slotNumber, isCurrent, hoveredSlot, s
       )}
     </motion.div>
   );
-};
+});
 
 // Free period card
-const FreePeriodCard = ({ slotNumber, onClick }) => (
+const FreePeriodCard = React.memo(({ slotNumber, onClick }) => (
   <motion.div
     layout
     initial={{ opacity: 0 }}
@@ -315,7 +316,7 @@ const FreePeriodCard = ({ slotNumber, onClick }) => (
       </span>
     </div>
   </motion.div>
-);
+));
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
@@ -394,7 +395,7 @@ const TimetableComponent = () => {
           setLoading(false);
           hasInitiallyLoaded.current = true;
         }
-      }, 5000);
+      }, 800);
     };
 
     initialLoad();
