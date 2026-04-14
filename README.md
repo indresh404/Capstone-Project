@@ -1,5 +1,23 @@
 
-# 📚 Schedula
+#  Schedula
+
+<div align="center" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+  <!-- Empty left div for balance -->
+  <div style="width: 100px;"></div>
+  
+  <!-- Centered Logo -->
+  <div>
+    <img src="public/logo.svg" alt="Schedula Logo" width="150" />
+  </div>
+  
+  <!-- Right side text with design font -->
+  <div style="width: 100px; text-align: right;">
+    <span style="font-family: 'Poppins', 'Segoe UI', cursive; font-size: 1.2rem; font-weight: 600; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; background-clip: text; color: transparent;">
+      Smart Scheduling
+    </span>
+  </div>
+</div>
+<br>
 
 **Schedula** is an AI-powered academic timetable management system that automates scheduling, detects real-time clashes, enables faculty lecture swaps, and provides intelligent analytics for institutional optimization.
 
