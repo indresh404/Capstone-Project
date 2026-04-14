@@ -23,6 +23,10 @@
 
 🔗 **Repository**: [github.com/indresh404/Capstone-Project](https://github.com/indresh404/Capstone-Project.git)
 
+TEST USERS:
+FACULTY : vaishali@gmail.com / faculty123*
+ADMIN : bhushan@gmail.com / admin123*
+
 ---
 
 ## 📖 Table of Contents
