@@ -193,6 +193,98 @@ Benefits achieved:
 Load Data → Schedule Tests → Schedule Labs → Schedule Theory → Validate Constraints → Post Process → Fill Gaps → Insert Breaks → Save to DB
 ```
 
+## Intelligent Timetable Engine
+
+Schedula is an AI-assisted academic scheduling system that automatically generates clash-free timetables using a constraint-based scheduling engine built with Node.js, Express, and PostgreSQL.
+
+---
+
+## 🚀 Overview
+
+The Timetable Engine is the core backend module of Schedula that:
+- Automatically assigns lectures, labs, and tests
+- Ensures zero scheduling conflicts
+- Balances faculty workload
+- Optimizes room and batch utilization
+
+---
+
+## 🧠 Core Concepts Used
+
+- Constraint Satisfaction Problem (CSP)
+- Greedy Scheduling Algorithm
+- Heuristic Optimization
+- Occupancy Matrix (O(1) conflict checking)
+- Randomized Scheduling (shuffle-based fairness)
+- Block Scheduling (for labs)
+
+---
+
+## ⚙️ Algorithm Flow
+
+1. Load data from database (rooms, faculty, subjects, batches)
+2. Initialize occupancy tracking system
+3. Schedule tests (1 per batch per week)
+4. Schedule labs (2-slot blocks, multi-batch)
+5. Schedule theory lectures (balanced distribution)
+6. Post-process timetable (remove conflicts, fix ordering)
+7. Fill empty slots (FREE periods)
+8. Insert breaks and finalize timetable
+
+---
+
+## 🧩 Key Features
+
+- ⚡ Real-time clash detection
+- 📅 Automatic timetable generation
+- 👨‍🏫 Faculty-aware scheduling
+- 🏫 Room & batch optimization
+- 🔄 Lab block scheduling system
+- 📊 Balanced workload distribution
+- 🧠 AI-ready structure for optimization
+
+---
+
+## 🏗️ Architecture
+
+Frontend → API (Express.js) → Timetable Engine → PostgreSQL (Supabase)
+
+---
+
+## 🗄️ Database Support
+
+- Users (Admin / Faculty)
+- Subjects
+- Rooms
+- Divisions
+- Batches
+- Timetable entries
+
+---
+
+## ⚡ Performance Optimizations
+
+- O(1) conflict detection using occupancy matrices
+- Precomputed lookup maps for fast access
+- Reduced DB calls using in-memory processing
+- Efficient greedy assignment strategy
+
+---
+
+## 🎯 Output
+
+Generates a fully structured weekly timetable with:
+- No clashes
+- Balanced distribution
+- Faculty-wise assignments
+- Room optimization
+
+---
+
+## 🏆 Summary
+
+A rule-based intelligent scheduling engine that uses constraint satisfaction and greedy optimization to generate conflict-free academic timetables in real-time.
+
 ---
 
 ## 🗄️ Database Structure
