@@ -461,12 +461,3 @@ It integrates full‑stack development, AI analytics, and modern DevOps practice
 
 ---
 
-## 👨‍💻 Team Members
-
-- **Indresh** – [indresh404](https://github.com/indresh404)  
-  Full-stack development, AI integration, DevOps, Docker & Kubernetes orchestration
-
-- **Komal Pandey** – [Komal2008](https://github.com/Komal2008) • Collaborator  
-  Contributed to frontend development, UI/UX design, and testing
-
----
