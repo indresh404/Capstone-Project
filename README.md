@@ -457,7 +457,7 @@ It integrates full‑stack development, AI analytics, and modern DevOps practice
 
 ## 🏆 Final One‑Line Summary
 
-> SCHEDULA is an AI‑powered, cloud‑native timetable optimization system that automates scheduling, resolves conflicts, balances workload, and scales using Kubernetes‑based infrastructure.
+> SCHEDULA is an AI‑powered for analysing, cloud‑native timetable optimization system that automates scheduling, resolves conflicts, balances workload, and scales using Kubernetes‑based infrastructure.
 
 ---
 
