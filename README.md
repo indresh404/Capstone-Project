@@ -24,8 +24,8 @@
 🔗 **Repository**: [github.com/indresh404/Capstone-Project](https://github.com/indresh404/Capstone-Project.git)
 
 TEST USERS:
-FACULTY : vaishali@gmail.com / faculty123*
-ADMIN : bhushan@gmail.com / admin123*
+FACULTY : vaishali@gmail.com / Password : faculty123*
+ADMIN : bhushan@gmail.com / Password : admin123*
 
 ---
 
